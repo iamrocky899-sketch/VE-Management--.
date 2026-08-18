@@ -1,4 +1,4 @@
-﻿.gradle/
+.gradle/
 build/
 */build/
 local.properties
@@ -14,3 +14,12 @@ captures/
 app/release/
 *.apk
 
+
+# Firebase / Google services credentials
+
+
+# Firebase secrets
+
+
+# Firebase / Google services credentials
+app/google-services.json
