@@ -1,0 +1,16 @@
+﻿.gradle/
+build/
+*/build/
+local.properties
+.idea/
+.artifacts/
+*.iml
+.DS_Store
+.externalNativeBuild/
+.cxx/
+captures/
+
+# Generated APK/release files
+app/release/
+*.apk
+
