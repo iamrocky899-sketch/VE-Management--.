@@ -2,6 +2,9 @@ package com.itdept.itghss
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -25,6 +28,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -52,6 +57,8 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private val CAMERA_PERMISSION_CODE = 101
+    private val NOTIFICATION_PERMISSION_CODE = 102
+    private val NOTIFICATION_CHANNEL_ID = "attendance_reminders"
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
     private lateinit var googleSignInClient: GoogleSignInClient
@@ -111,9 +118,11 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
+        createNotificationChannel()
         setupGoogleSignIn()
         setupWebView()
         checkPermissions()
+        handleNotificationIntent(intent)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -131,6 +140,39 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleNotificationIntent(intent)
+    }
+
+    private fun handleNotificationIntent(intent: Intent?) {
+        val action = intent?.getStringExtra("action")
+        if (action == "take_attendance") {
+            val classNum = intent.getStringExtra("classNum") ?: "9"
+            val section = intent.getStringExtra("section") ?: "A"
+            webView.postDelayed({
+                webView.evaluateJavascript("if (typeof openAttendanceForClass === 'function') openAttendanceForClass('$classNum', '$section');", null)
+            }, 500)
+        }
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val name = "Attendance Reminders"
+            val descriptionText = "Smart reminders for scheduled class attendance"
+            val importance = NotificationManager.IMPORTANCE_HIGH
+            val channel = NotificationChannel(NOTIFICATION_CHANNEL_ID, name, importance).apply {
+                description = descriptionText
+                enableLights(true)
+                enableVibration(true)
+            }
+            val notificationManager: NotificationManager =
+                getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
     }
 
     private fun setupGoogleSignIn() {
@@ -224,7 +266,7 @@ class MainActivity : AppCompatActivity() {
 
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString()
-                if (url != null && (url.startsWith("whatsapp:") || url.contains("chat.whatsapp.com") || url.startsWith("tel:") || url.startsWith("mailto:"))) {
+                if (url != null && (url.startsWith("whatsapp:") || url.contains("chat.whatsapp.com") || url.contains("wa.me") || url.contains("api.whatsapp.com") || url.startsWith("sms:") || url.startsWith("tel:") || url.startsWith("mailto:"))) {
                     try {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                         startActivity(intent)
@@ -353,9 +395,63 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             perms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            perms.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
         val needed = perms.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
         if (needed.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, needed.toTypedArray(), CAMERA_PERMISSION_CODE)
+        }
+    }
+
+    private fun showAttendanceNotificationInternal(id: Int, title: String, message: String, classNum: String, section: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_PERMISSION_CODE)
+                return
+            }
+        }
+
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("action", "take_attendance")
+            putExtra("classNum", classNum)
+            putExtra("section", section)
+        }
+
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
+
+        val pendingIntent = PendingIntent.getActivity(this, id, intent, flags)
+
+        val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher_ghss)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pendingIntent)
+            .addAction(android.R.drawable.ic_menu_camera, "Take Attendance", pendingIntent)
+            .setAutoCancel(true)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+
+        val notificationManager = NotificationManagerCompat.from(this)
+        try {
+            notificationManager.notify(id, builder.build())
+        } catch (e: SecurityException) {
+            android.util.Log.e("MainActivity", "Notification permission not granted: ${e.message}")
+        }
+    }
+
+    private fun cancelAttendanceNotificationInternal(id: Int) {
+        val notificationManager = NotificationManagerCompat.from(this)
+        if (id == 0) {
+            notificationManager.cancelAll()
+        } else {
+            notificationManager.cancel(id)
         }
     }
 
@@ -372,6 +468,20 @@ class MainActivity : AppCompatActivity() {
                 pInfo.versionName ?: "5.7"
             } catch (e: Exception) {
                 "5.7"
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        fun showAttendanceNotification(id: Int, title: String, message: String, classNum: String, section: String) {
+            runOnUiThread {
+                showAttendanceNotificationInternal(id, title, message, classNum, section)
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        fun cancelAttendanceNotification(id: Int) {
+            runOnUiThread {
+                cancelAttendanceNotificationInternal(id)
             }
         }
 

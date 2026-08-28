@@ -14,12 +14,14 @@ captures/
 app/release/
 *.apk
 
-
-# Firebase / Google services credentials
-
-
-# Firebase secrets
-
-
 # Firebase / Google services credentials
 app/google-services.json
+google-services.json
+
+# Keystores & Signing
+*.jks
+*.keystore
+signing.properties
+
+# IDE Backups
+.idea_backup/

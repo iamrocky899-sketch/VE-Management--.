@@ -12,10 +12,10 @@
 - **Project Name**: VE Management (IT GHSS)
 - **Application Display Name**: `VE Management`
 - **Application ID / Package Name**: `com.itdept.itghss`
-- **Current Version Name**: `5.6`
-- **Current Version Code**: `5`
+- **Current Version Name**: `5.7`
+- **Current Version Code**: `6`
 - **Primary GitHub Repository**: [https://github.com/iamrocky899-sketch/VE-Management--](https://github.com/iamrocky899-sketch/VE-Management--)
-- **Project Purpose**: An offline-first Vocational Education Management System designed for vocational department teachers and administrators. It provides student lifecycle management, attendance tracking with on-device face recognition, continuous academic marks entry, student group leadership assignment, guest lecture tracking, field visit records, weekly syllabus tracking, financial ledger records, portfolio generation, and export utilities (PDF & Excel), with optional Google Drive cloud synchronization.
+- **Project Purpose**: An offline-first Vocational Education Management System designed for vocational department teachers and administrators. It provides student lifecycle management, attendance tracking with on-device face recognition, attendance register tabular view with month-by-month navigation, smart WhatsApp absence alerts with localized Assamese messaging, attendance calendar with teacher day-status overrides, continuous academic marks entry, student group leadership assignment, guest lecture tracking, field visit records, weekly syllabus tracking, financial ledger records, portfolio generation, and export utilities (PDF & Excel), with optional Google Drive cloud synchronization.
 - **Current Release Status**: Production-ready local build. Successfully verified on `assembleDebug` and `assembleRelease`.
 
 ---
@@ -78,7 +78,7 @@ ITGHSS2/
 │   ├── proguard-rules.pro                 # R8/ProGuard preservation rules for JS interfaces and Google APIs
 │   └── src/
 │       └── main/
-│           ├── AndroidManifest.xml        # Permissions, orientations, and Activity declarations
+│           ├── AndroidManifest.xml        # Permissions, queries (WhatsApp), and Activity declarations
 │           ├── assets/                    # Bundled offline assets loaded by WebView
 │           │   ├── index.html             # Complete application SPA (HTML, CSS, JS runtime)
 │           │   ├── logo.png               # Application department logo
@@ -97,7 +97,7 @@ ITGHSS2/
 │           │       └── face_recognition_model-shard2
 │           ├── java/
 │           │   └── com/itdept/itghss/
-│           │       └── MainActivity.kt    # Native Android Activity, WebView host, Google OAuth & Drive bridge
+│           │       └── MainActivity.kt    # Native Android Activity, WebView host, Google OAuth, Drive & Calendar bridge
 │           └── res/
 │               ├── layout/
 │               │   └── activity_main.xml  # ConstraintLayout hosting the full-screen WebView
@@ -130,6 +130,7 @@ VE Management is built as an **Offline-First Hybrid Application**. The native Ko
 │  - Camera Hardware Permissions & MediaStream Access                      │
 │  - MediaStore Scoped Storage Download Integration                        │
 │  - Google Play Services OAuth 2.0 Client                                 │
+│  - WhatsApp Intent Queries for Safe Direct Handoff                       │
 └────────────────────────────────────┬─────────────────────────────────────┘
                                      │
                                      ▼
@@ -140,6 +141,7 @@ VE Management is built as an **Offline-First Hybrid Application**. The native Ko
 │  - JavaScript Interface Bridge: @JavascriptInterface "Android"          │
 │  - Background Coroutine Services for Drive & Holiday Calendar            │
 │  - Lifecycle Hooks: onPause() / onDestroy() Camera & Timer Teardown      │
+│  - URL override handler for WhatsApp scheme and web links                │
 └────────────────────────────────────┬─────────────────────────────────────┘
                                      │
            Bidirectional JavaScript Bridge (window.Android)
@@ -153,14 +155,18 @@ VE Management is built as an **Offline-First Hybrid Application**. The native Ko
 │  │  - Home Dashboard     │  │  - TinyFaceDetector   │  │  - SheetJS   │  │
 │  │  - Student Management │  │  - Landmark68Net      │  │  - jsPDF     │  │
 │  │  - Attendance Hub     │  │  - FaceRecognitionNet │  │  - AutoTable │  │
-│  │  - Marks Entry System │  │  - 3-Sample Enroller  │  └──────────────┘  │
-│  │  - Group Details View │  │  - 0.48 Matching Engine│                    │
-│  │  - 8 Auxiliary Pages  │  └───────────────────────┘                    │
+│  │  - Attendance 2.0     │  │  - 3-Sample Enroller  │  └──────────────┘  │
+│  │    * Month Register   │  │  - 0.48 Matching Engine│                    │
+│  │    * Calendar Control │  └───────────────────────┘                    │
+│  │    * WA Absence Alert │                                               │
+│  │  - Marks Entry System │                                               │
+│  │  - Group Details View │                                               │
+│  │  - 8 Auxiliary Pages  │                                               │
 │  └───────────────────────┘                                               │
 │                                                                          │
 │  ┌────────────────────────────────────────────────────────────────────┐  │
 │  │            Local Storage Engine (Web localStorage)                 │  │
-│  │     17 Partitioned State Keys (itd3_s, itd3_m, itd3_f, ...)        │  │
+│  │     23 Partitioned State Keys (itd3_s, itd3_a, itd3_alerts, ...)   │  │
 │  └────────────────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -173,30 +179,24 @@ The file [MainActivity.kt](file:///c:/Users/HP/Downloads/ITGHSS2/app/src/main/ja
 
 ### Core Responsibilities
 1. **Asset Loading via `WebViewAssetLoader`**:
-   - To bypass Chromium `file:///` CORS cross-origin restrictions on `fetch()`, `MainActivity.kt` uses `androidx.webkit.WebViewAssetLoader` with `AssetsPathHandler`.
-   - The application is loaded under the origin: `https://appassets.androidplatform.net/assets/index.html`.
-   - All network requests targeting `/assets/` are intercepted in `shouldInterceptRequest` and served directly from APK assets with proper MIME types.
+   - Loaded under origin: `https://appassets.androidplatform.net/assets/index.html`.
+   - Intercepted in `shouldInterceptRequest` and served directly from APK assets.
 2. **WebSettings Configuration**:
    - `javaScriptEnabled = true`
    - `domStorageEnabled = true`
-   - `allowFileAccess = true`
-   - `allowContentAccess = true`
-   - `allowFileAccessFromFileURLs = true`
-   - `allowUniversalAccessFromFileURLs = true`
    - `mediaPlaybackRequiresUserGesture = false`
 3. **Native Bridge (`WebAppInterface`)**:
-   - `getAppVersion()`: Returns current version name (`5.6`).
-   - `saveFile(base64, filename, mime)`: Saves Base64-encoded files to `MediaStore.Downloads` on Android 10+ (API 29 to 37) without requiring legacy storage permissions.
-   - `loginWithGoogle()`: Launches the `GoogleSignIn` OAuth flow.
-   - `logoutFromGoogle()`: Clears credentials and active service clients.
-   - `syncToDrive(jsonData)`: Background coroutine (`Dispatchers.IO`) that uploads `itghss_backup.json` to Google Drive `appDataFolder`.
-   - `requestSyncFromDrive()`: Background coroutine that downloads `itghss_backup.json` from `appDataFolder` and dispatches it back to JS via `window.onCloudDataLoaded`.
+   - `getAppVersion()`: Returns current version name (`5.7`).
+   - `saveFile(base64, filename, mime)`: Saves Base64-encoded files to `MediaStore.Downloads` on Android 10+ (API 29 to 37).
+   - `loginWithGoogle()`: Launches GoogleSignIn OAuth flow.
+   - `logoutFromGoogle()`: Clears credentials and service clients.
+   - `syncToDrive(jsonData)`: Background coroutine (`Dispatchers.IO`) uploading `itghss_backup.json` to Google Drive `appDataFolder`.
+   - `requestSyncFromDrive()`: Background coroutine downloading `itghss_backup.json` from `appDataFolder` and notifying JS via `window.onCloudDataLoaded`.
    - `fetchHolidays(year)`: Queries Google Indian Public Holidays calendar and sends JSON to `window.onHolidaysLoaded`.
-4. **Lifecycle & Battery Optimization**:
-   - `onPause()`: Calls `webView.evaluateJavascript("if(typeof stopCamera === 'function') stopCamera();", null)`, pauses WebView timers, and invokes `webView.onPause()`.
-   - `onDestroy()`: Releases WebView resources and shuts down camera streams.
+4. **WhatsApp URL Handling**:
+   - `shouldOverrideUrlLoading` intercepts `whatsapp:`, `wa.me`, and `api.whatsapp.com` URIs and resolves via native Intent launcher.
 5. **Edge-to-Edge & Insets**:
-   - `enableEdgeToEdge()` combined with `ViewCompat.setOnApplyWindowInsetsListener` ensures UI padding respects status bar, navigation bar, cutouts, and gesture bars.
+   - `enableEdgeToEdge()` combined with `ViewCompat.setOnApplyWindowInsetsListener` handles system bars and cutouts.
 
 ---
 
@@ -205,10 +205,13 @@ The file [MainActivity.kt](file:///c:/Users/HP/Downloads/ITGHSS2/app/src/main/ja
 The entire user interface, domain state, and offline algorithms are implemented within [index.html](file:///c:/Users/HP/Downloads/ITGHSS2/app/src/main/assets/index.html).
 
 ### Primary SPA Pages / Views
-1. `#page-home`: Real-time stats dashboard, quick action tiles, WhatsApp group shortcuts, attendance progress bars.
+1. `#page-home`: Real-time stats dashboard, quick action tiles (`Register`, `Calendar`, `Absence Alert`), WhatsApp group shortcuts, attendance progress bars.
 2. `#page-students`: Filterable student roster (by Class 9-12, Section A/B, Active/Inactive/Dropout), Add Student form, Bulk Promote, Bulk Drop, Student Details modal.
 3. `#page-records`: Tabbed report hub containing:
-   - **Attendance Reports**: Date-range filters, Excel & PDF export.
+   - **📖 Register (Attendance 2.0)**: Traditional tabular month register with `< Prev`/`Next >` navigation, search filter, working days calculation, individual student history breakdown modal, and Excel/PDF register exports.
+   - **📅 Calendar (Attendance 2.0)**: Interactive month calendar view with day status badges (`Working Day`, `Holiday`, `Class Not Held`, `Attendance Complete`, `Attendance Pending`) and Teacher Manual Day Control modal.
+   - **🚨 Absence Alerts (Attendance 2.0)**: Smart consecutive absence detection engine, active alert review & history list, "Why This Alert?" calculation accordion, localized Assamese WhatsApp message generator, safe handoff (`PENDING`, `EXCLUDED`, `OPENED_IN_WHATSAPP`), and teacher exclusion workflow.
+   - **Attendance Reports (Legacy Summary)**: Date-range filters, Excel & PDF export.
    - **Marks Entry**: Real-time `Theory + Practice = Total` calculations, per-student Save/Edit controls, and bulk class saving.
    - **Weekly Syllabus Progress**: Syllabus coverage, chapter, topic, teacher, student presence.
    - **Student Progress Report**: Individual student academic cards.
@@ -218,21 +221,13 @@ The entire user interface, domain state, and offline algorithms are implemented 
 6. `#page-field`: Field Visit Register with student count, expenditure, and documentation export.
 7. `#page-raw`: Raw Material Register (inward/outward stock, cost, quantity).
 8. `#page-gle`: General Ledger Register (Cr/Dr, category, balance summary).
-9. `#page-settings`: Theme switcher (Dark/Light), School/Teacher profile editor, Cloud Sync status, JSON Backup/Restore, Data Wipe.
-
-### Key JavaScript Functions Reference
-- **State & Data**: `saveData()`, `refreshAllUI()`, `backupData()`, `restoreData()`, `clearAllData()`.
-- **Navigation & Modals**: `navTo(page, isBack)`, `openModal(id)`, `closeModal(id)`, `window.onBackPressed()`, `showToast(msg, type)`.
-- **Marks Module**: `renderClassMarksEntry()`, `filterMarksExam(ex, el)`, `onMarkChange(sid, ex)`, `calcTotal(t, p)`, `saveStudentMarks(sid)`, `saveAllClassMarks()`, `toggleCardEdit(sid)`, `exportAllMarks(format)`.
-- **Student Groups Module**: `renderGroupsPage()`, `viewGroupDetails(groupId)`, `openGroupModal(id)`, `saveGroup()`, `deleteGroup()`, `openPresidentModal()`, `setPresident(sid)`.
-- **Face Recognition Module**: `initModels()`, `startCamera(mode)`, `stopCamera()`, `closeCamera()`, `switchCamera()`, `startDrawing()`, `startFaceReg(id)`, `updateEnrollmentGuideUI()`, `captureFace()`, `markAttendance(id)`, `selectAttendanceClass(cls)`, `toggleScanning()`.
-- **Cloud Synchronization**: `loginWithGoogle()`, `logoutFromGoogle()`, `syncToCloud()`, `syncFromCloud()`, `window.onCloudDataLoaded(jsonData)`, `window.onGoogleSignInSuccess(email)`.
+9. `#page-settings`: Theme switcher (Dark/Light), School/Teacher profile editor, Cloud Sync status, JSON Backup/Restore, Data Wipe, Alert Threshold and Template configuration.
 
 ---
 
 ## 7. Data Storage & Schema
 
-The application utilizes **Web `localStorage`** as its primary client-side database. All 17 keys are serialized as JSON strings:
+The application utilizes **Web `localStorage`** as its primary client-side database. All 26 keys are serialized as JSON strings:
 
 | LocalStorage Key | Data Type | Description |
 | :--- | :--- | :--- |
@@ -242,6 +237,15 @@ The application utilizes **Web `localStorage`** as its primary client-side datab
 | `itd3_m` | `Object<string, Object>` | Marks mapping: `{ [studentId]: { [examIndex]: { t, p } } }`. |
 | `itd3_cg` | `Object<string, ClassGroup>` | Custom groups and class presidents per class ('9', '10', '11', '12'). |
 | `itd3_cnh` | `Object<string, Object>` | Class Not Held register `{ [date_class]: { reason, other } }`. |
+| `itd3_day_status` | `Object<string, Object>` | Teacher manual day status overrides: `{ [date]: { [class]: { status, reason } } }`. |
+| `itd3_holidays` | `Object<string, string>` | Offline cache of Google Indian Public Holidays: `{ "YYYY-MM-DD": "Holiday Name" }`. |
+| `itd3_alert_threshold`| `number` | Consecutive absence threshold (1 to 5, default 2). |
+| `itd3_alert_template` | `string` | Localized Assamese WhatsApp message template. |
+| `itd3_alerts` | `Array<Alert>` | Active and historical alert records with tracking statuses. |
+| `itd3_alert_exclusions`| `Object<string, Object>`| Teacher absence exclusions: `{ [studentId]: { sequenceKey, reason, note } }`. |
+| `itd3_timetable` | `Array<TimetableEntry>` | Weekly class timetable slots (Day, Time, Class, Section, Reminder, Tolerance, Active). |
+| `itd3_reminder_settings`| `Object` | Global reminder settings: `{ enabled: boolean, defaultTolerance: number }`. |
+| `itd3_reminder_notified`| `Object<string, Object>`| Record of notified timetable occurrences per date to prevent duplicate alerts. |
 | `itd3_wp` | `Array<WeeklyProgress>` | Syllabus weekly progress records. |
 | `itd3_rm` | `Array<RawMaterial>` | Raw material stock and inventory entries. |
 | `itd3_gle` | `Array<GLEntry>` | General Ledger income/expense entries. |

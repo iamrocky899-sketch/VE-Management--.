@@ -5,8 +5,27 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+
+    <queries>
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="whatsapp" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="sms" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="true"
@@ -24,6 +43,7 @@
             android:name=".MainActivity"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize"
+            android:launchMode="singleTop"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
