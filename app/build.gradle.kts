@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.itdept.itghss"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.itdept.itghss"
         minSdk = 26
-        targetSdk = 37
+        targetSdk = 36
         versionCode = 6
         versionName = "5.7"
 
@@ -29,6 +29,10 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
 
     packaging {

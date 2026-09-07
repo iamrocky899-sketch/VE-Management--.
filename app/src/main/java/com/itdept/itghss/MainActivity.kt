@@ -6,6 +6,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -33,6 +34,10 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -58,6 +63,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private val CAMERA_PERMISSION_CODE = 101
     private val NOTIFICATION_PERMISSION_CODE = 102
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private val NOTIFICATION_CHANNEL_ID = "attendance_reminders"
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
@@ -80,9 +86,11 @@ class MainActivity : AppCompatActivity() {
         try {
             val account = task.getResult(com.google.android.gms.common.api.ApiException::class.java)
             if (account != null) {
+                val email = account.email ?: ""
                 googleAccount = account
                 initializeGoogleServices(account)
-                notifyJsSignInSuccess(account.email ?: "")
+                notifyJsSignInSuccess(email)
+                Toast.makeText(this, "Google account connected for Drive backup: $email", Toast.LENGTH_SHORT).show()
             }
         } catch (e: com.google.android.gms.common.api.ApiException) {
             val errorMsg = when (e.statusCode) {
@@ -122,6 +130,7 @@ class MainActivity : AppCompatActivity() {
         setupGoogleSignIn()
         setupWebView()
         checkPermissions()
+        registerNetworkCallback()
         handleNotificationIntent(intent)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -186,10 +195,13 @@ class MainActivity : AppCompatActivity() {
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
         
-        // Check for existing account
-        googleAccount = GoogleSignIn.getLastSignedInAccount(this)
-        googleAccount?.let {
-            initializeGoogleServices(it)
+        // Check for existing signed-in Google account for Drive backup
+        val lastSignedIn = GoogleSignIn.getLastSignedInAccount(this)
+        if (lastSignedIn != null) {
+            googleAccount = lastSignedIn
+            initializeGoogleServices(lastSignedIn)
+        } else {
+            googleAccount = null
         }
     }
 
@@ -253,6 +265,8 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                // Always sync School Cloud Config to JS on page load
+                notifyJsSchoolCloudConfig()
                 // Notify JS of current login status
                 googleAccount?.let {
                     notifyJsSignInSuccess(it.email ?: "")
@@ -338,6 +352,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun notifyJsSignInFailure(error: String) {
         webView.evaluateJavascript("if(window.onGoogleSignInFailure) window.onGoogleSignInFailure('$error');", null)
+    }
+
+    private fun notifyJsSchoolCloudConfig() {
+        val configJson = "{\"schoolId\":\"GAMERI-HSS-001\",\"schoolName\":\"Gameri Higher Secondary School, Gamiri\",\"setupCompleted\":true}"
+        webView.evaluateJavascript("if(window.onSchoolCloudConfigLoaded) window.onSchoolCloudConfigLoaded('$configJson');", null)
     }
 
     private fun notifyJsSyncResult(success: Boolean, message: String) {
@@ -455,7 +474,38 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun isOnline(): Boolean {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+        val network = cm.activeNetwork ?: return false
+        val capabilities = cm.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    private fun registerNetworkCallback() {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+        networkCallback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                runOnUiThread {
+                    webView.evaluateJavascript("if(window.SyncManager && typeof window.SyncManager.onNetworkAvailable === 'function') window.SyncManager.onNetworkAvailable();", null)
+                }
+            }
+        }
+        try {
+            cm.registerNetworkCallback(request, networkCallback!!)
+        } catch (e: Exception) {
+            android.util.Log.w("MainActivity", "Failed to register network callback: ${e.message}")
+        }
+    }
+
     inner class WebAppInterface {
+        @android.webkit.JavascriptInterface
+        fun isNetworkAvailable(): Boolean {
+            return isOnline()
+        }
+
         @android.webkit.JavascriptInterface
         fun getAppVersion(): String {
             return try {
@@ -482,6 +532,28 @@ class MainActivity : AppCompatActivity() {
         fun cancelAttendanceNotification(id: Int) {
             runOnUiThread {
                 cancelAttendanceNotificationInternal(id)
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        fun syncNativeState(
+            timetableJson: String,
+            settingsJson: String,
+            recordedAttendanceJson: String,
+            dayOverridesJson: String,
+            cnhJson: String
+        ) {
+            try {
+                AttendanceReminderScheduler.saveNativeState(
+                    this@MainActivity,
+                    timetableJson,
+                    settingsJson,
+                    recordedAttendanceJson,
+                    dayOverridesJson,
+                    cnhJson
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("MainActivity", "Error syncing native reminder state: ${e.message}")
             }
         }
 
@@ -513,6 +585,43 @@ class MainActivity : AppCompatActivity() {
                     webView.evaluateJavascript("if(window.onGoogleSignOut) window.onGoogleSignOut();", null)
                 }
             }
+        }
+
+        @android.webkit.JavascriptInterface
+        fun getSchoolCloudConfig(): String {
+            return "{\"schoolId\":\"GAMERI-HSS-001\",\"schoolName\":\"Gameri Higher Secondary School, Gamiri\",\"setupCompleted\":true}"
+        }
+
+        @android.webkit.JavascriptInterface
+        fun saveSchoolDetails(schoolId: String, schoolName: String, schoolDistrict: String): Boolean {
+            return true
+        }
+
+        @android.webkit.JavascriptInterface
+        fun completeFirstTimeSetup(schoolId: String, schoolName: String, schoolDistrict: String): Boolean {
+            return true
+        }
+
+        @android.webkit.JavascriptInterface
+        fun disconnectSchoolAccount(): Boolean {
+            runOnUiThread {
+                googleSignInClient.signOut().addOnCompleteListener {
+                    googleAccount = null
+                    driveService = null
+                    calendarService = null
+                    webView.evaluateJavascript("if(window.onGoogleSignOut) window.onGoogleSignOut();", null)
+                }
+            }
+            return true
+        }
+
+        @android.webkit.JavascriptInterface
+        fun confirmSwitchSchoolAccount(newEmail: String): Boolean {
+            return true
+        }
+
+        @android.webkit.JavascriptInterface
+        fun cancelSwitchSchoolAccount() {
         }
 
         @android.webkit.JavascriptInterface
@@ -694,6 +803,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         webView.evaluateJavascript("if(typeof stopCamera === 'function') stopCamera();", null)
+        networkCallback?.let {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            try {
+                cm?.unregisterNetworkCallback(it)
+            } catch (_: Exception) {}
+        }
         webView.destroy()
         super.onDestroy()
     }

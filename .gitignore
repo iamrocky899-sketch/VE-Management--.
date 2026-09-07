@@ -25,3 +25,64 @@ signing.properties
 
 # IDE Backups
 .idea_backup/
+
+# Node & Frontend Dependencies
+node_modules/
+*/node_modules/
+
+# Frontend Build Artifacts
+dist/
+*/dist/
+
+# Environment Variables & Local Secrets
+.env
+.env.*
+!.env.example
+*/*.env
+*/*.env.*
+!*/*.env.example
+
+# Temporary files, logs, scratch & worker local state
+scratch/
+*.log
+.wrangler/
+*/.wrangler/
+.firebase/
+*/.firebase/
+
+# Test screenshots, visual audits & artifacts
+audit_*.png
+screen_*.png
+s_*.png
+ref_*.png
+ref*.jpg
+m_*.png
+*.png.bak
+qa_visual_samples/
+step6_visual_samples/
+sample_documents/
+login_ui_backup/
+
+# Temporary scratch inspection & test scripts
+find_*.py
+check_*.py
+inspect_*.py
+search_*.py
+test_*.py
+print_nav.py
+capture_bottom.py
+test_cdp.cjs
+apply_*.py
+apply_*.cjs
+audit_*.cjs
+run_*.cjs
+find_*.cjs
+scan-*.cjs
+scan_*.cjs
+scratch_*.js
+debug-*.cjs
+*/debug-*.cjs
+fix-*.cjs
+*/fix-*.cjs
+validate-*.cjs
+*/validate-*.cjs

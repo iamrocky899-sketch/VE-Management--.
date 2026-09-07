@@ -1,0 +1,16 @@
+# ============================================================
+# VE MANAGEMENT — STAFF PORTAL CLOUDFLARE HOSTING
+# School: Gameri Higher Secondary School, Gamiri (GAMERI-HSS-001)
+# ============================================================
+
+name = "ve-management-staff"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+account_id = "5053705be2c3f25dc008a1d7237cdc8d"
+workers_dev = true
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+html_handling = "auto-trailing-slash"
+not_found_handling = "single-page-application"

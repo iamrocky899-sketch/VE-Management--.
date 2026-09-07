@@ -1,0 +1,58 @@
+# ============================================================
+# VE MANAGEMENT — CLOUDFLARE WORKERS CANONICAL CONFIGURATION
+# School: Gameri Higher Secondary School, Gamiri (GAMERI-HSS-001)
+# Storage Provider: Backblaze B2 (Private Object Store)
+# ============================================================
+
+name = "ve-management-api"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Default Account & Zone Tenancy
+account_id = "5053705be2c3f25dc008a1d7237cdc8d"
+workers_dev = true
+
+# Observability
+[observability]
+enabled = true
+
+# ============================================================
+# CANONICAL PRODUCTION ENVIRONMENT VARIABLES & BINDINGS
+# ============================================================
+[vars]
+ENVIRONMENT = "production"
+SCHOOL_ID = "GAMERI-HSS-001"
+SCHOOL_NAME = "Gameri Higher Secondary School, Gamiri"
+CORS_ALLOW_ORIGINS = "https://staff.gameri-hss.edu.in,https://parent.gameri-hss.edu.in,http://localhost:5173,http://localhost:5174"
+B2_BUCKET_NAME = "ve-management-files"
+B2_ENDPOINT = "https://s3.us-east-005.backblazeb2.com"
+B2_REGION = "us-east-005"
+
+# Production D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "ve-management-db-prod"
+database_id = "fcb05085-a97c-4f4a-8a55-7f06cd15460a"
+migrations_dir = "migrations"
+
+# ============================================================
+# STAGING ENVIRONMENT (SHADOW DUAL-RUN)
+# ============================================================
+[env.staging]
+name = "ve-management-api-staging"
+[env.staging.vars]
+ENVIRONMENT = "staging"
+SCHOOL_ID = "GAMERI-HSS-001"
+SCHOOL_NAME = "Gameri Higher Secondary School, Gamiri"
+CORS_ALLOW_ORIGINS = "https://staging-staff.gameri-hss.edu.in,https://staging-parent.gameri-hss.edu.in"
+B2_BUCKET_NAME = "ve-management-files"
+B2_ENDPOINT = "https://s3.us-east-005.backblazeb2.com"
+B2_REGION = "us-east-005"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "ve-management-db-staging"
+database_id = "11111111-1111-1111-1111-111111111111"
+migrations_dir = "migrations"
+
