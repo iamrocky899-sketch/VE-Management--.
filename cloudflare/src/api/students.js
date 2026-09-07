@@ -21,6 +21,8 @@ export function formatStudentRecord(s) {
   const mobile = s.mobile || s.parentMobile || '';
   const parentMobile = s.parentMobile || s.mobile || '';
   const status = s.status || 'Active';
+  const rawGroup = s.group || s.student_group || s.group_name || s.studentGroup || s.assigned_group || s.assignedGroup;
+  const group = (rawGroup !== undefined && rawGroup !== null && String(rawGroup).trim() !== '' && String(rawGroup).trim() !== 'null' && String(rawGroup).trim() !== 'undefined' && String(rawGroup).trim() !== 'Group Not Assigned') ? String(rawGroup).trim() : null;
 
   return {
     ...s,
@@ -38,6 +40,9 @@ export function formatStudentRecord(s) {
     rollNo,
     roll_no: rollNo,
     roll: rollNo,
+    group,
+    student_group: group,
+    group_name: group,
     fatherName,
     father_name: fatherName,
     motherName,

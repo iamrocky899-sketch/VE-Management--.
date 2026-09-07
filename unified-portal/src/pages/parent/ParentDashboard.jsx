@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 
 export default function ParentDashboard({ setActivePage }) {
-  const { user, selectedChildId, switchChild, updateChildren, handleSessionRevocation } = useAuth();
+  const { user, children, selectedChildId, switchChild, updateChildren, handleSessionRevocation } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -57,7 +57,9 @@ export default function ParentDashboard({ setActivePage }) {
     }
   }, [user?.token]);
 
-  if (loading) {
+  const effectiveChildren = (children && children.length > 0) ? children : (user?.children || []);
+
+  if (loading && !dashboardData && effectiveChildren.length === 0) {
     return (
       <div className="dashboard-skeleton-wrap animate-fade-in">
         <div className="card skeleton" style={{ height: '140px', marginBottom: '20px', borderRadius: '20px' }} />
@@ -75,7 +77,7 @@ export default function ParentDashboard({ setActivePage }) {
     );
   }
 
-  if (error && !dashboardData) {
+  if (error && !dashboardData && effectiveChildren.length === 0) {
     return (
       <div className="dashboard-error-state card animate-fade-in" style={{ textAlign: 'center', padding: '40px 20px', borderRadius: '20px' }}>
         <AlertCircle size={44} color="#dc2626" style={{ margin: '0 auto 12px auto' }} />
@@ -115,7 +117,9 @@ export default function ParentDashboard({ setActivePage }) {
     activeChildSummary = childrenSummaries[0];
   }
 
-  const selectedStudent = activeChildSummary?.student || {
+  const selectedStudent = activeChildSummary?.student || effectiveChildren.find(
+    c => String(c.studentId || c.student_id || c.id) === String(selectedChildId)
+  ) || effectiveChildren[0] || {
     studentName: 'Child',
     class: '9',
     section: 'N/A',

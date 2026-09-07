@@ -4,6 +4,7 @@
  */
 
 import { successResponse, errorResponse } from '../response.js';
+import { formatStudentRecord } from './students.js';
 
 export const ParentsApi = {
   async getParentChildren(env, session, payload, corsHeaders) {
@@ -14,6 +15,14 @@ export const ParentsApi = {
        WHERE psl.parent_id = ? AND psl.active = 1 AND s.status = 'Active'`
     );
     const { results } = await stmt.bind(parentId).all();
-    return successResponse({ children: results || [] }, 'get_parent_children', 200, corsHeaders);
+    const formattedChildren = (results || []).map(s => {
+      const formatted = formatStudentRecord(s);
+      return {
+        ...formatted,
+        relationship: s.relationship || 'Parent'
+      };
+    });
+    return successResponse({ children: formattedChildren }, 'get_parent_children', 200, corsHeaders);
   }
 };
+

@@ -29,7 +29,7 @@ export function normalizeStudent(s) {
         : (s.roll ? String(s.roll) : ''));
   // Authoritative group mapping: only from authoritative fields, never fabricated or inferred
   const rawGroup = s.group || s.student_group || s.group_name || s.studentGroup || s.assigned_group || s.assignedGroup;
-  const group = (rawGroup !== undefined && rawGroup !== null && String(rawGroup).trim() !== '') ? String(rawGroup).trim() : null;
+  const group = (rawGroup !== undefined && rawGroup !== null && String(rawGroup).trim() !== '' && String(rawGroup).trim() !== 'null' && String(rawGroup).trim() !== 'undefined' && String(rawGroup).trim() !== 'Group Not Assigned') ? String(rawGroup).trim() : null;
   const fatherName = s.fatherName || s.father_name || '';
   const motherName = s.motherName || s.mother_name || '';
   const parentName = s.parentName || fatherName || motherName || s.guardian_name || 'Parent';
@@ -633,7 +633,7 @@ export const ApiService = {
         ApiService.getCalendar(token, bypassCache)
       ]);
 
-      const studentProfile = profRes?.data?.student || {
+      const studentProfile = profRes?.data?.student || normalizeStudent({
         studentId: studentId,
         studentName: session?.name || 'Student',
         class: session?.class || '10',
@@ -641,7 +641,7 @@ export const ApiService = {
         rollNo: session?.rollNo || '1',
         group: session?.group || null,
         mobile: session?.mobile || ''
-      };
+      });
 
       const attendanceRecords = attRes?.data?.attendance || [];
       let totalWorkingDays = 0;
@@ -780,16 +780,7 @@ export const ApiService = {
           const childNotices = notices.slice(0, 5);
 
           return {
-            student: {
-              studentId: childId,
-              studentName: c.student_name || c.studentName || c.name,
-              class: c.class || '10',
-              section: c.section || '',
-              rollNo: c.roll_no || c.rollNo || '1',
-              mobile: c.mobile || '',
-              group: c.group || null,
-              status: c.status || 'Active'
-            },
+            student: normalizeStudent(c),
             attendanceSummary: {
               totalWorkingDays,
               presentDays,
@@ -848,16 +839,7 @@ export const ApiService = {
       const childrenRes = await ApiService.getParentChildren(token, bypassCache);
       const rawChildren = childrenRes?.data?.children || [];
 
-      const normalizedChildren = rawChildren.map(c => ({
-        studentId: c.student_id || c.studentId || c.id,
-        studentName: c.student_name || c.studentName || c.name,
-        class: c.class || '10',
-        section: c.section || '',
-        rollNo: c.roll_no || c.rollNo || '1',
-        mobile: c.mobile || '',
-        group: c.group || null,
-        status: c.status || 'Active'
-      }));
+      const normalizedChildren = rawChildren.map(normalizeStudent);
 
       return {
         success: true,
@@ -885,14 +867,7 @@ export const ApiService = {
       const childrenRes = await ApiService.getParentChildren(token, bypassCache);
       const rawChildren = childrenRes?.data?.children || [];
 
-      const normalizedChildren = rawChildren.map(c => ({
-        studentId: c.student_id || c.studentId || c.id,
-        studentName: c.student_name || c.studentName || c.name,
-        class: c.class || '10',
-        section: c.section || '',
-        rollNo: c.roll_no || c.rollNo || '1',
-        group: c.group || null
-      }));
+      const normalizedChildren = rawChildren.map(normalizeStudent);
 
       const activeChild = normalizedChildren.find(c => String(c.studentId) === String(childId)) || normalizedChildren[0] || null;
 

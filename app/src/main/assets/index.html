@@ -207,6 +207,25 @@
             overflow-wrap: break-word;
         }
 
+        /* Birthday Bar Banner - Visually centered horizontally within usable Home screen */
+        .birthday-bar {
+            width: 100%;
+            max-width: 540px;
+            margin: 0 auto 18px auto;
+            box-sizing: border-box;
+            background: rgba(255, 105, 180, 0.12);
+            border: 1px solid rgba(255, 105, 180, 0.35);
+            border-radius: 16px;
+            padding: 12px 18px;
+            display: none; /* toggled to flex via JS */
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(255, 105, 180, 0.15);
+        }
+
         /* Dashboard Statistics Grid */
         .stats-grid {
             display: grid;
@@ -3836,9 +3855,8 @@ Gameri Higher Secondary School, Gamiri`;
             const adminKey = inputKey || (window.SyncManager ? window.SyncManager.getAdminKey() : (localStorage.getItem('itd3_admin_sync_key') || ''));
             const apiUrl = window.SyncManager ? window.SyncManager.getApiUrl() : "https://ve-management-api.iamrocky899.workers.dev";
 
-            // DIAGNOSTIC LOG (Masked)
-            const maskedKey = adminKey ? (adminKey.substring(0, 4) + '...' + adminKey.substring(adminKey.length - 4)) : 'NONE';
-            console.log(`[AdminApi] Request with Token: ${token ? 'YES' : 'NO'}, API Key: ${maskedKey} (${adminKey ? adminKey.length : 0} chars)`);
+            // Sanitized logging
+            console.log('[AdminApi] Authenticating administrative request');
 
             return {
                 apiUrl: apiUrl,
@@ -4805,6 +4823,26 @@ Gameri Higher Secondary School, Gamiri`;
             }, 300);
         }
 
+        function getStudentAssignedGroup(s) {
+            if (!s) return 'Group Not Assigned';
+            const raw = s.group || s.student_group || s.group_name || s.studentGroup || s.assigned_group || s.assignedGroup;
+            if (raw && String(raw).trim() !== '' && String(raw).trim() !== 'null' && String(raw).trim() !== 'undefined' && String(raw).trim() !== 'Group Not Assigned') {
+                return String(raw).trim();
+            }
+            try {
+                const sid = String(s.id || s.studentId || '');
+                const sCls = String(s.class || '9');
+                const cgData = (typeof classGroups !== 'undefined' && classGroups) ? classGroups : JSON.parse(localStorage.getItem('itd3_cg') || '{}');
+                const clsGroups = (cgData[sCls] && Array.isArray(cgData[sCls].g)) ? cgData[sCls].g : [];
+                for (const g of clsGroups) {
+                    if (g && Array.isArray(g.m) && g.m.map(String).includes(sid)) {
+                        return g.n || 'Group Not Assigned';
+                    }
+                }
+            } catch (e) {}
+            return 'Group Not Assigned';
+        }
+
         function renderStudentList() {
             const query = document.getElementById('search-input').value.toLowerCase().trim();
             const list = document.getElementById('student-list');
@@ -4830,6 +4868,7 @@ Gameri Higher Secondary School, Gamiri`;
             filtered.slice(0, itemsToShow).forEach(s => {
                 const hasFace = faces.some(f => f.id === s.id);
                 const isSelected = selectedStudents.has(s.id);
+                const assignedGrp = getStudentAssignedGroup(s);
                 const row = document.createElement('div');
                 row.className = 'item-row glass portfolio-card-tap' + (isSelected ? ' selected' : '');
                 row.onclick = (e) => {
@@ -4849,6 +4888,7 @@ Gameri Higher Secondary School, Gamiri`;
                                 <span class="badge" style="background:rgba(37,99,235,0.15); color:#a5c0ff;">Class ${s.class}</span>
                                 <span class="badge" style="background:var(--glass-bg); color:var(--text-dim);">Roll: ${s.roll || 'N/A'}</span>
                                 <span class="badge" style="background:var(--glass-bg); color:var(--text-dim);">Sec: ${s.section || 'N/A'}</span>
+                                <span class="badge" style="background:rgba(0,242,254,0.12); color:var(--accent-teal);">Grp: ${assignedGrp}</span>
                                 ${s.mobile ? `<span class="badge" style="background:var(--glass-bg); color:var(--text-dim);">📞 ${s.mobile}</span>` : ''}
                             </div>
                         </div>
@@ -5188,6 +5228,18 @@ Gameri Higher Secondary School, Gamiri`;
                 classGroups[cls].g.push(groupData);
             }
 
+            // Synchronize student.group across class members
+            const memberIds = new Set(Array.from(groupMembers).map(String));
+            students.forEach(st => {
+                if (String(st.class) === String(cls)) {
+                    if (memberIds.has(String(st.id))) {
+                        st.group = name;
+                    } else if (st.group === name) {
+                        st.group = null;
+                    }
+                }
+            });
+
             saveData();
             renderGroupsPage();
             closeModal('modal-group-edit');
@@ -5197,7 +5249,16 @@ Gameri Higher Secondary School, Gamiri`;
         function deleteGroup() {
             if (confirm("Delete this group permanently?")) {
                 const cls = selectedClass === 'All' ? '9' : selectedClass;
+                const grpObj = classGroups[cls].g.find(x => x.id === currentGroupId);
+                const grpName = grpObj ? grpObj.n : null;
                 classGroups[cls].g = classGroups[cls].g.filter(x => x.id !== currentGroupId);
+                if (grpName) {
+                    students.forEach(st => {
+                        if (String(st.class) === String(cls) && st.group === grpName) {
+                            st.group = null;
+                        }
+                    });
+                }
                 saveData();
                 renderGroupsPage();
                 closeModal('modal-group-edit');
@@ -5208,8 +5269,23 @@ Gameri Higher Secondary School, Gamiri`;
         function viewDetail(id) {
             currentDetailId = id; const s = students.find(x => x.id === id);
             document.getElementById('det-name-title').innerText = (s.roll ? s.roll + '. ' : '') + s.name;
-            const fields = [['Name','name'],['Roll No','roll'],['Class','class'],['Section','section'],['Status','status'],['Gender','gender'],['DOB','dob'],['Father','father'],['Mother','mother'],['Mobile','mobile'],['Aadhaar','aadhaar'],['Village','village']];
-            document.getElementById('detail-content').innerHTML = fields.map(f => `<div class="form-group"><label>${f[0]}</label><input type="text" id="det-${f[1]}" value="${s[f[1]] || ''}" readonly></div>`).join('');
+            const assignedGrp = getStudentAssignedGroup(s);
+            const fields = [
+                ['Name','name', s.name || ''],
+                ['Roll No','roll', s.roll || ''],
+                ['Class','class', s.class || ''],
+                ['Section','section', s.section || ''],
+                ['Assigned Group','group', assignedGrp],
+                ['Status','status', s.status || 'Active'],
+                ['Gender','gender', s.gender || ''],
+                ['DOB','dob', s.dob || ''],
+                ['Father','father', s.father || ''],
+                ['Mother','mother', s.mother || ''],
+                ['Mobile','mobile', s.mobile || ''],
+                ['Aadhaar','aadhaar', s.aadhaar || ''],
+                ['Village','village', s.village || '']
+            ];
+            document.getElementById('detail-content').innerHTML = fields.map(f => `<div class="form-group"><label>${f[0]}</label><input type="text" id="det-${f[1]}" value="${f[2]}" readonly></div>`).join('');
             openModal('modal-detail');
         }
 
@@ -5223,7 +5299,14 @@ Gameri Higher Secondary School, Gamiri`;
                 const s = students.find(x => x.id === currentDetailId);
                 if(!s) { showToast("Student not found", "error"); closeModal('modal-detail'); return; }
                 const oldInfo = `Class ${s.class}, Roll ${s.roll || 'N/A'}`;
-                ['name','roll','class','section','status','gender','dob','father','mother','mobile','aadhaar','village'].forEach(f => s[f] = document.getElementById('det-'+f).value);
+                ['name','roll','class','section','status','gender','dob','father','mother','mobile','aadhaar','village'].forEach(f => {
+                    const el = document.getElementById('det-'+f);
+                    if (el) s[f] = el.value;
+                });
+                const grpInput = document.getElementById('det-group');
+                if (grpInput && grpInput.value && grpInput.value !== 'Group Not Assigned') {
+                    s.group = grpInput.value.trim();
+                }
                 const newInfo = `Class ${s.class}, Roll ${s.roll || 'N/A'}`;
                 logAudit('Student Profile Updated', 'Student Profile', oldInfo, newInfo, s.name);
                 saveData(); renderStudentList(); showToast("Updated!");
@@ -6152,8 +6235,6 @@ Gameri Higher Secondary School, Gamiri`;
         }
 
         function renderRegister() {
-            const curCls = document.getElementById('reg-class-select').value;
-            refreshClassSectionDropdown('reg-section-select', curCls, true);
             const curCls = document.getElementById('reg-class-select').value;
             refreshClassSectionDropdown('reg-section-select', curCls, true);
             const cls = document.getElementById('reg-class-select')?.value || '9';
@@ -7910,9 +7991,10 @@ Gameri Higher Secondary School, Gamiri`;
             currentPortfolioTimelineMonth = new Date().getMonth() + 1;
 
             // Header
+            const assignedGroup = getStudentAssignedGroup(s);
             document.getElementById('portfolio-view-avatar').innerText = s.name ? s.name[0] : '?';
             document.getElementById('portfolio-view-name').innerText = (s.roll ? s.roll + '. ' : '') + s.name;
-            document.getElementById('portfolio-view-meta').innerText = `Class ${s.class} | Section ${s.section || 'A'} | Roll: ${s.roll || 'N/A'}`;
+            document.getElementById('portfolio-view-meta').innerText = `Class ${s.class} | Section ${s.section || 'A'} | Roll: ${s.roll || 'N/A'} | Group: ${assignedGroup}`;
             const statusBadge = document.getElementById('portfolio-view-status-badge');
             if (statusBadge) {
                 const st = s.status || 'Active';
@@ -8744,8 +8826,7 @@ Gameri Higher Secondary School, Gamiri`;
             }
         }
 
-        async async function exportExcel() {
-            try { await loadExcelLibrary(); } catch(e) { return showToast("Excel tool loading error", "error"); }
+        async function exportExcel() {
             try { await loadExcelLibrary(); } catch(e) { return showToast("Excel tool loading error", "error"); }
             if (typeof XLSX === 'undefined') return showToast("Export library not loaded", "error");
             const cls = document.getElementById('attendance-report-class').value;
@@ -8779,8 +8860,7 @@ Gameri Higher Secondary School, Gamiri`;
             } catch (e) { showToast("Export failed: " + e.message, "error"); }
         }
 
-        async async function exportPDF() {
-            try { await loadPdfLibrary(); } catch(e) { return showToast("PDF tool loading error", "error"); }
+        async function exportPDF() {
             try { await loadPdfLibrary(); } catch(e) { return showToast("PDF tool loading error", "error"); }
             if (typeof window.jspdf === 'undefined') return showToast("PDF library not loaded", "error");
             const cls = document.getElementById('attendance-report-class').value;
@@ -9811,9 +9891,8 @@ Gameri Higher Secondary School, Gamiri`;
             }
         }
 
-        async async function exportGuestReport(index) {
-            try { if(format === 'excel') await loadExcelLibrary(); else await loadPdfLibrary(); } catch(e) { return showToast("Export tool loading error", "error"); }
-            try { if(format === 'excel') await loadExcelLibrary(); else await loadPdfLibrary(); } catch(e) { return showToast("Export tool loading error", "error"); }
+        async function exportGuestReport(index) {
+            try { await loadPdfLibrary(); } catch(e) { return showToast("Export tool loading error", "error"); }
             const slot = guestLectures[index][guestClass];
             if(!slot || !slot.topic) return showToast("No data to export for this slot", "error");
 
@@ -9876,8 +9955,7 @@ Gameri Higher Secondary School, Gamiri`;
             triggerDownload(base64, `Guest_Lecture_Report_Slot_${index+1}.pdf`, 'application/pdf');
         }
 
-        async async function exportStudentList(format) {
-            try { if(format === 'excel') await loadExcelLibrary(); else await loadPdfLibrary(); } catch(e) { return showToast("Export tool loading error", "error"); }
+        async function exportStudentList(format) {
             try { if(format === 'excel') await loadExcelLibrary(); else await loadPdfLibrary(); } catch(e) { return showToast("Export tool loading error", "error"); }
             const query = document.getElementById('search-input').value.toLowerCase().trim();
             const filtered = students.filter(s => {

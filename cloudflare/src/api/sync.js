@@ -9,6 +9,7 @@
 
 import { successResponse, errorResponse } from '../response.js';
 import { Security } from '../security.js';
+import { formatStudentRecord } from './students.js';
 
 export const SyncApi = {
   /**
@@ -588,7 +589,7 @@ export const SyncApi = {
     return successResponse({
       serverTimestamp: new Date().toISOString(),
       since: since,
-      students: students,
+      students: (students || []).map(formatStudentRecord),
       attendance: attendance,
       marks: marks,
       notes: enrichedNotes,

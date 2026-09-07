@@ -467,21 +467,26 @@
             const sid = String(cs.student_id || cs.studentId || cs.id);
             // Only update if not pending local edit
             if (!pendingEntityIds.has(`Students_${sid}`) && !pendingEntityIds.has(`Students_ALL_STUDENTS`)) {
+              const existingStudent = localMap.get(sid) || {};
+              const rawGroup = cs.group || cs.student_group || cs.group_name || cs.studentGroup || existingStudent.group || null;
+              const group = (rawGroup !== undefined && rawGroup !== null && String(rawGroup).trim() !== '' && String(rawGroup).trim() !== 'null' && String(rawGroup).trim() !== 'undefined' && String(rawGroup).trim() !== 'Group Not Assigned') ? String(rawGroup).trim() : null;
               localMap.set(sid, {
+                ...existingStudent,
                 id: sid,
                 studentId: sid,
-                name: cs.student_name || cs.studentName || cs.name || '',
-                roll: cs.roll_no || cs.rollNo || cs.roll || '',
-                class: String(cs.class || '9'),
-                section: String(cs.section || 'A'),
-                gender: cs.gender || 'Male',
-                dob: cs.dob || '',
-                father: cs.father_name || cs.fatherName || cs.father || '',
-                mother: cs.mother_name || cs.motherName || cs.mother || '',
-                mobile: cs.mobile || '',
-                aadhaar: cs.aadhaar || '',
-                village: cs.village || '',
-                status: cs.status || 'Active'
+                name: cs.student_name || cs.studentName || cs.name || existingStudent.name || '',
+                roll: cs.roll_no || cs.rollNo || cs.roll || existingStudent.roll || '',
+                class: String(cs.class || existingStudent.class || '9'),
+                section: String(cs.section || existingStudent.section || 'A'),
+                group: group,
+                gender: cs.gender || existingStudent.gender || 'Male',
+                dob: cs.dob || existingStudent.dob || '',
+                father: cs.father_name || cs.fatherName || cs.father || existingStudent.father || '',
+                mother: cs.mother_name || cs.motherName || cs.mother || existingStudent.mother || '',
+                mobile: cs.mobile || existingStudent.mobile || '',
+                aadhaar: cs.aadhaar || existingStudent.aadhaar || '',
+                village: cs.village || existingStudent.village || '',
+                status: cs.status || existingStudent.status || 'Active'
               });
             }
           });

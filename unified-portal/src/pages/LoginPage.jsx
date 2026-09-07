@@ -18,6 +18,7 @@ import {
   Users,
   CheckCircle2
 } from 'lucide-react';
+import { trackLoginSuccess, trackLoginFailure } from '../services/analytics';
 
 export default function LoginPage({ onLoginSuccess }) {
   const { login, loading, error, setError, sessionNotice, clearNotice } = useAuth();
@@ -37,22 +38,30 @@ export default function LoginPage({ onLoginSuccess }) {
 
     if (!cleanId) {
       setError('Please enter your registered mobile number or ID.');
+      trackLoginFailure('missing_credentials');
       triggerShake();
       return;
     }
 
     if (!cleanPwd) {
       setError('Please enter your password.');
+      trackLoginFailure('missing_credentials');
       triggerShake();
       return;
     }
 
     const res = await login(cleanId, cleanPwd);
     if (res && res.success) {
+      trackLoginSuccess(res.role);
       if (onLoginSuccess) {
         onLoginSuccess(res.role);
       }
     } else {
+      const errMsg = (res?.error?.message || '').toLowerCase();
+      const reason = errMsg.includes('connect') || errMsg.includes('server')
+        ? 'network_error'
+        : 'invalid_credentials';
+      trackLoginFailure(reason);
       triggerShake();
     }
   };

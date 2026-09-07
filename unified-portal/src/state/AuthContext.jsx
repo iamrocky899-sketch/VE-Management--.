@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getStoredSession, saveSession, clearStoredSession, SELECTED_CHILD_KEY } from '../utils/session';
 import { ApiService, onSessionError } from '../api/client';
+import { trackLogout } from '../services/analytics';
 
 const AuthContext = createContext(null);
 
@@ -93,6 +94,7 @@ export function AuthProvider({ children }) {
 
   // Logout
   const logout = () => {
+    trackLogout();
     ApiService.clearCache();
     clearStoredSession();
     setUser(null);

@@ -1,6 +1,7 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, Suspense, lazy, useEffect } from 'react';
 import { useAuth } from './state/AuthContext';
 import LoginPage from './pages/LoginPage';
+import { initAnalytics, trackSessionStart, trackPageView, trackFeatureUsage } from './services/analytics';
 import ProtectedRoute from './components/ProtectedRoute';
 import PortalShell from './components/PortalShell';
 import StaffLayout from './components/StaffLayout';
@@ -65,7 +66,7 @@ function PageLoading() {
 }
 
 export default function App() {
-  const { isAuthenticated, isCheckingSession, isStudent, isParent, isStaff, isAdmin, isPrincipal } = useAuth();
+  const { isAuthenticated, isCheckingSession, role, isStudent, isParent, isStaff, isAdmin, isPrincipal } = useAuth();
   const [activePage, setActivePage] = useState(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -84,6 +85,23 @@ export default function App() {
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
+
+  // Initialize Firebase Analytics once on mount & track session start
+  useEffect(() => {
+    initAnalytics();
+    trackSessionStart();
+  }, []);
+
+  // Track privacy-safe page views and feature usage
+  useEffect(() => {
+    if (isAuthenticated) {
+      trackPageView(activePage, role);
+      trackFeatureUsage(activePage, role);
+    } else {
+      trackPageView('login', 'GUEST');
+    }
+  }, [activePage, isAuthenticated, role]);
+
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   // Initial session check splash
