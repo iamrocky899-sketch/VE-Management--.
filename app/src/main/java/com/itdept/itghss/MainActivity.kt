@@ -255,6 +255,10 @@ class MainActivity : AppCompatActivity() {
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
 
+        if (0 != (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)) {
+            WebView.setWebContentsDebuggingEnabled(true)
+        }
+
         webView.addJavascriptInterface(WebAppInterface(), "Android")
 
         webView.webViewClient = object : WebViewClient() {

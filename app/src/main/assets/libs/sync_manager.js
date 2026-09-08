@@ -30,7 +30,12 @@
      */
     getApiUrl: function() {
       if (typeof localStorage !== 'undefined') {
-        return localStorage.getItem(STORAGE_KEY_API_URL) || DEFAULT_API_URL;
+        const stored = localStorage.getItem(STORAGE_KEY_API_URL);
+        if (stored && (stored.includes('script.google.com') || stored.includes('script.googleusercontent.com') || stored.includes('localhost') || stored.startsWith('http:'))) {
+          localStorage.removeItem(STORAGE_KEY_API_URL);
+          return DEFAULT_API_URL;
+        }
+        return stored || DEFAULT_API_URL;
       }
       return DEFAULT_API_URL;
     },
@@ -626,12 +631,21 @@
       const pendingCount = queue.filter(q => q.status === 'PENDING' || q.status === 'FAILED').length;
       const lastSync = (typeof localStorage !== 'undefined') ? localStorage.getItem('itd3_last_sync') : null;
 
+      let controller = null;
+      let timeoutId = null;
+      if (typeof AbortController !== 'undefined') {
+        controller = new AbortController();
+        timeoutId = setTimeout(function() { controller.abort(); }, 10000);
+      }
+
       fetch(pingUrl, {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
-        cache: 'no-store'
+        cache: 'no-store',
+        signal: controller ? controller.signal : undefined
       })
       .then(function(res) {
+        if (timeoutId) clearTimeout(timeoutId);
         const durationMs = Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - startTime);
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -650,7 +664,7 @@
           latencyMs: result.latency,
           schoolId: payload?.data?.schoolId || 'GAMERI-HSS-001',
           schoolName: payload?.data?.schoolName || 'Gameri Higher Secondary School, Gamiri',
-          version: payload?.data?.version || '6.0-CF-PROD',
+          version: payload?.data?.version || payload?.data?.apiVersion || payload?.version || '6.0-CF-PROD',
           environment: payload?.data?.environment || 'production',
           lastSync: lastSync,
           pendingCount: pendingCount
@@ -658,14 +672,16 @@
         if (callback) callback(info);
       })
       .catch(function(err) {
+        if (timeoutId) clearTimeout(timeoutId);
         const durationMs = Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - startTime);
+        const isAbort = err.name === 'AbortError';
         const info = {
           success: false,
           ok: false,
           isLive: false,
           status: 'OFFLINE',
           latencyMs: durationMs,
-          errorMessage: err.message || 'Connection timeout or network unavailable',
+          errorMessage: isAbort ? 'Connection timed out (10s)' : (err.message || 'Connection timeout or network unavailable'),
           lastSync: lastSync,
           pendingCount: pendingCount
         };

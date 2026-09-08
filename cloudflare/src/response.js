@@ -14,10 +14,17 @@ export function getCorsHeaders(request, env) {
   const requestOrigin = request && typeof request.headers?.get === 'function' ? request.headers.get('Origin') : null;
   let allowedOrigin = '*';
 
+  const standardAllowedOrigins = [
+    'https://appassets.androidplatform.net',
+    'http://localhost:5173',
+    'http://localhost:5174'
+  ];
+
   if (requestOrigin && env && env.CORS_ALLOW_ORIGINS) {
     const whitelist = String(env.CORS_ALLOW_ORIGINS).split(',').map(o => o.trim()).filter(Boolean);
-    // Also always allow localhost dev servers
-    whitelist.push('http://localhost:5173', 'http://localhost:5174');
+    standardAllowedOrigins.forEach(o => {
+      if (!whitelist.includes(o)) whitelist.push(o);
+    });
     if (whitelist.includes(requestOrigin)) {
       allowedOrigin = requestOrigin;
     } else {
@@ -32,7 +39,7 @@ export function getCorsHeaders(request, env) {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-School-ID',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-School-ID, X-Admin-Key, Accept',
     'Access-Control-Max-Age': '86400'
   };
 }
