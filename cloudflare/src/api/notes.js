@@ -96,7 +96,12 @@ export const NotesApi = {
          subject = excluded.subject,
          teacher_id = COALESCE(excluded.teacher_id, notes.teacher_id),
          teacher_name = COALESCE(excluded.teacher_name, notes.teacher_name),
-         updated_at = datetime('now')`
+         updated_at = datetime('now')
+       WHERE notes.title IS NOT excluded.title
+          OR notes.class IS NOT excluded.class
+          OR notes.subject IS NOT excluded.subject
+          OR (excluded.teacher_id IS NOT NULL AND notes.teacher_id IS NOT excluded.teacher_id)
+          OR (excluded.teacher_name IS NOT NULL AND notes.teacher_name IS NOT excluded.teacher_name)`
     ).bind(noteId, schoolId, title, classNum, subject, teacherId, teacherName).run();
 
     // 2. Track unit IDs to clean up deleted units
@@ -126,7 +131,14 @@ export const NotesApi = {
            attachment_name = excluded.attachment_name,
            attachment_size = excluded.attachment_size,
            display_order = excluded.display_order,
-           updated_at = datetime('now')`
+           updated_at = datetime('now')
+         WHERE note_units.unit_number IS NOT excluded.unit_number
+            OR note_units.unit_title IS NOT excluded.unit_title
+            OR note_units.description IS NOT excluded.description
+            OR (excluded.attachment_url IS NOT NULL AND note_units.attachment_url IS NOT excluded.attachment_url)
+            OR (excluded.attachment_name IS NOT NULL AND note_units.attachment_name IS NOT excluded.attachment_name)
+            OR (excluded.attachment_size IS NOT NULL AND note_units.attachment_size IS NOT excluded.attachment_size)
+            OR note_units.display_order IS NOT excluded.display_order`
       ).bind(unitId, schoolId, noteId, unitNumber, unitTitle, description, attachmentUrl, attachmentName, attachmentSize, unitNumber).run();
 
       // 3. Process Questions inside Unit
@@ -150,7 +162,11 @@ export const NotesApi = {
              answer_text = excluded.answer_text,
              type = excluded.type,
              display_order = excluded.display_order,
-             updated_at = datetime('now')`
+             updated_at = datetime('now')
+           WHERE note_questions.question_text IS NOT excluded.question_text
+              OR note_questions.answer_text IS NOT excluded.answer_text
+              OR note_questions.type IS NOT excluded.type
+              OR note_questions.display_order IS NOT excluded.display_order`
         ).bind(questionId, schoolId, unitId, questionText, answerText, qType, displayOrder).run();
       }
 
@@ -254,7 +270,14 @@ export const NotesApi = {
          attachment_name = excluded.attachment_name,
          attachment_size = excluded.attachment_size,
          display_order = excluded.display_order,
-         updated_at = datetime('now')`
+         updated_at = datetime('now')
+       WHERE note_units.unit_number IS NOT excluded.unit_number
+          OR note_units.unit_title IS NOT excluded.unit_title
+          OR note_units.description IS NOT excluded.description
+          OR (excluded.attachment_url IS NOT NULL AND note_units.attachment_url IS NOT excluded.attachment_url)
+          OR (excluded.attachment_name IS NOT NULL AND note_units.attachment_name IS NOT excluded.attachment_name)
+          OR (excluded.attachment_size IS NOT NULL AND note_units.attachment_size IS NOT excluded.attachment_size)
+          OR note_units.display_order IS NOT excluded.display_order`
     ).bind(unitId, schoolId, noteId, unitNumber, unitTitle, description, attachmentUrl, attachmentName, attachmentSize, unitNumber).run();
 
     return successResponse({
@@ -318,7 +341,11 @@ export const NotesApi = {
          answer_text = excluded.answer_text,
          type = excluded.type,
          display_order = excluded.display_order,
-         updated_at = datetime('now')`
+         updated_at = datetime('now')
+       WHERE note_questions.question_text IS NOT excluded.question_text
+          OR note_questions.answer_text IS NOT excluded.answer_text
+          OR note_questions.type IS NOT excluded.type
+          OR note_questions.display_order IS NOT excluded.display_order`
     ).bind(questionId, schoolId, unitId, questionText, answerText, type, displayOrder).run();
 
     return successResponse({

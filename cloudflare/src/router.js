@@ -21,6 +21,7 @@ import { SyncApi } from './api/sync.js';
 import { FilesApi } from './api/files.js';
 import { AcademicYearsApi } from './api/academic_years.js';
 import { AssignmentsApi } from './api/assignments.js';
+import { ActivitiesApi } from './api/activities.js';
 
 export async function routeRequest(request, env, corsHeaders) {
   const url = new URL(request.url);
@@ -210,6 +211,14 @@ export async function routeRequest(request, env, corsHeaders) {
     case 'parent_activities':
       const { results: actResults } = await env.DB.prepare(`SELECT * FROM activities ORDER BY date DESC`).all();
       return successResponse({ activities: actResults || [] }, 'get_activities', 200, corsHeaders);
+
+    case 'save_activities':
+    case 'save_activity':
+      return ActivitiesApi.saveActivities(env, session, payload, corsHeaders);
+
+    case 'delete_activities':
+    case 'delete_activity':
+      return ActivitiesApi.deleteActivity(env, session, payload, corsHeaders);
 
     case 'get_assignments':
     case 'parent_assignments':

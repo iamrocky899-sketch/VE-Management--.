@@ -124,6 +124,8 @@ export const AssignmentsApi = {
     }
 
     const savedRecords = [];
+    let hasActualChanges = false;
+
     for (const item of items) {
       const assignmentId = String(item.assignmentId || item.assignment_id || item.id || `ASG_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
       const title = String(item.title).trim();
@@ -139,7 +141,7 @@ export const AssignmentsApi = {
         status = 'ACTIVE';
       }
 
-      await env.DB.prepare(
+      const runResult = await env.DB.prepare(
         `INSERT INTO assignments (
            assignment_id, school_id, title, description, class, section, subject,
            assigned_date, due_date, max_marks, status, created_at, updated_at
@@ -154,11 +156,24 @@ export const AssignmentsApi = {
            due_date = excluded.due_date,
            max_marks = excluded.max_marks,
            status = excluded.status,
-           updated_at = datetime('now')`
+           updated_at = datetime('now')
+         WHERE assignments.title IS NOT excluded.title
+            OR assignments.description IS NOT excluded.description
+            OR assignments.class IS NOT excluded.class
+            OR assignments.section IS NOT excluded.section
+            OR assignments.subject IS NOT excluded.subject
+            OR assignments.assigned_date IS NOT excluded.assigned_date
+            OR assignments.due_date IS NOT excluded.due_date
+            OR assignments.max_marks IS NOT excluded.max_marks
+            OR assignments.status IS NOT excluded.status`
       ).bind(
         assignmentId, schoolId, title, description, targetClass, section, subject,
         assignedDate, dueDate, maxMarks, status
       ).run();
+
+      if (runResult?.meta?.changes > 0) {
+        hasActualChanges = true;
+      }
 
       savedRecords.push({
         assignmentId,
@@ -180,26 +195,29 @@ export const AssignmentsApi = {
       });
     }
 
-    // Audit log
-    try {
-      const logId = `LOG_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-      await env.DB.prepare(
-        `INSERT INTO audit_logs (log_id, school_id, timestamp, action, actor_type, actor_id, details, status)
-         VALUES (?, ?, datetime('now'), 'SAVE_ASSIGNMENTS', ?, ?, ?, 'SUCCESS')`
-      ).bind(
-        logId,
-        schoolId,
-        session.role,
-        session.userId,
-        JSON.stringify({ count: savedRecords.length, assignmentIds: savedRecords.map(r => r.assignmentId) })
-      ).run();
-    } catch (auditErr) {
-      console.error('[Audit] Failed to log assignment save:', auditErr);
+    // Only write audit log if records were actually inserted or modified
+    if (hasActualChanges) {
+      try {
+        const logId = `LOG_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        await env.DB.prepare(
+          `INSERT INTO audit_logs (log_id, school_id, timestamp, action, actor_type, actor_id, details, status)
+           VALUES (?, ?, datetime('now'), 'SAVE_ASSIGNMENTS', ?, ?, ?, 'SUCCESS')`
+        ).bind(
+          logId,
+          schoolId,
+          session.role,
+          session.userId,
+          JSON.stringify({ count: savedRecords.length, assignmentIds: savedRecords.map(r => r.assignmentId) })
+        ).run();
+      } catch (auditErr) {
+        console.error('[Audit] Failed to log assignment save:', auditErr);
+      }
     }
 
     return successResponse({
       records: savedRecords,
-      total: savedRecords.length
+      total: savedRecords.length,
+      changed: hasActualChanges
     }, 'save_assignments', 200, corsHeaders);
   },
 

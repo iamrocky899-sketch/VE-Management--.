@@ -181,7 +181,8 @@ export const AcademicYearsApi = {
         env.DB.prepare(
           `INSERT INTO settings (key, school_id, value, category, description, updated_at)
            VALUES ('ACADEMIC_YEAR', ?, ?, 'ACADEMIC', 'Canonical Active Academic Session', datetime('now'))
-           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+           WHERE settings.value IS NOT excluded.value`
         ).bind(schoolId, rawYearName)
       );
     }
@@ -263,7 +264,8 @@ export const AcademicYearsApi = {
       env.DB.prepare(
         `INSERT INTO settings (key, school_id, value, category, description, updated_at)
          VALUES ('ACADEMIC_YEAR', ?, ?, 'ACADEMIC', 'Canonical Active Academic Session', datetime('now'))
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+         WHERE settings.value IS NOT excluded.value`
       ).bind(schoolId, targetYear.year_name),
       // 4. 1 single audit log record
       env.DB.prepare(

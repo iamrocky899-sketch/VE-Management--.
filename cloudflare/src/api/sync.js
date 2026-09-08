@@ -565,6 +565,55 @@ export const SyncApi = {
       }
     }
 
+    // 5c. Process Activities (Conditional change detection: 0 writes if unchanged)
+    if (payload.activities && Array.isArray(payload.activities) && payload.activities.length > 0) {
+      entityTypes.push('Activities');
+      const actStmts = [];
+      const validCategories = ['VOCATIONAL', 'SPORTS', 'CULTURAL', 'COMMUNITY', 'EXHIBITION', 'LAB_WORK'];
+      for (const a of payload.activities) {
+        const actId = String(a.activityId || a.id || `ACT_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`);
+        const title = String(a.title || 'Vocational Activity').trim();
+        const desc = String(a.description || '').trim();
+        const actDate = String(a.date || new Date().toISOString().split('T')[0]).trim();
+        let rawCat = String(a.category || 'VOCATIONAL').toUpperCase().trim();
+        const category = validCategories.includes(rawCat) ? rawCat : 'VOCATIONAL';
+        const actClass = String(a.class || 'All').trim();
+        const actSec = String(a.section || 'All').trim();
+        const vis = String(a.visibility || 'PUBLIC').trim();
+
+        actStmts.push(
+          env.DB.prepare(
+            `INSERT INTO activities (
+               activity_id, school_id, title, description, date, category, class, section, visibility, created_at, updated_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+             ON CONFLICT(activity_id) DO UPDATE SET
+               title = excluded.title,
+               description = excluded.description,
+               date = excluded.date,
+               category = excluded.category,
+               class = excluded.class,
+               section = excluded.section,
+               visibility = excluded.visibility,
+               updated_at = datetime('now')
+             WHERE activities.title IS NOT excluded.title
+                OR activities.description IS NOT excluded.description
+                OR activities.date IS NOT excluded.date
+                OR activities.category IS NOT excluded.category
+                OR activities.class IS NOT excluded.class
+                OR activities.section IS NOT excluded.section
+                OR activities.visibility IS NOT excluded.visibility`
+          ).bind(actId, schoolId, title, desc, actDate, category, actClass, actSec, vis)
+        );
+      }
+      try {
+        await executeInChunks(env.DB, actStmts);
+        results.entities.activities = { count: actStmts.length };
+        totalBatchSize += actStmts.length;
+      } catch (e) {
+        errors.push(`Activities batch error: ${e.message}`);
+      }
+    }
+
     // 6. Record Sync Transaction in sync_metadata
     const syncStatus = errors.length === 0 ? 'PROCESSED' : 'PARTIAL';
     await env.DB.prepare(
