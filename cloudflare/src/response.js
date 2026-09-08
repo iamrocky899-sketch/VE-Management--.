@@ -27,6 +27,11 @@ export function getCorsHeaders(request, env) {
     });
     if (whitelist.includes(requestOrigin)) {
       allowedOrigin = requestOrigin;
+    } else if (
+      // Allow Firebase Hosting preview channel origins (ve-management-parent--{channel}.web.app)
+      /^https:\/\/ve-management-parent--[a-z0-9-]+\.web\.app$/.test(requestOrigin)
+    ) {
+      allowedOrigin = requestOrigin;
     } else {
       // Unknown origin — restrict to prevent CSRF
       allowedOrigin = whitelist[0] || '*';
