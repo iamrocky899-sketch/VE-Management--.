@@ -68,6 +68,7 @@ export default function Assignments({ onNavigate }) {
   const [assignmentModal, setAssignmentModal] = useState({ isOpen: false, mode: 'CREATE', assignment: null });
   const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, id: null, title: '' });
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -156,9 +157,9 @@ export default function Assignments({ onNavigate }) {
       class: String(asg.class || selectedClass),
       section: asg.section || 'A',
       subject: asg.subject || selectedSubject,
-      assignedDate: asg.assignedDate || new Date().toISOString().split('T')[0],
-      dueDate: asg.dueDate || '',
-      maxMarks: String(asg.maxMarks || '50'),
+      assignedDate: asg.assignedDate || asg.assigned_date || new Date().toISOString().split('T')[0],
+      dueDate: asg.dueDate || asg.due_date || '',
+      maxMarks: String(asg.maxMarks || asg.max_marks || '50'),
       status: (asg.status || 'ACTIVE').toUpperCase(),
       description: asg.description || ''
     });
@@ -175,7 +176,7 @@ export default function Assignments({ onNavigate }) {
     setError(null);
 
     const payload = {
-      assignmentId: assignmentModal.mode === 'EDIT' ? assignmentModal.assignment.assignmentId : undefined,
+      assignmentId: assignmentModal.mode === 'EDIT' ? (assignmentModal.assignment?.assignmentId || assignmentModal.assignment?.assignment_id) : undefined,
       title: formData.title.trim(),
       class: String(formData.class),
       section: formData.section || 'A',
@@ -206,24 +207,35 @@ export default function Assignments({ onNavigate }) {
   const confirmDeleteAssignment = (asg) => {
     setDeleteConfirm({
       isOpen: true,
-      id: asg.assignmentId,
+      id: asg.assignmentId || asg.assignment_id,
       title: asg.title
     });
   };
 
   const executeDeleteAssignment = async () => {
+    if (deleting || !deleteConfirm.id) return;
     const assignmentId = deleteConfirm.id;
+    setDeleting(true);
+    setError(null);
     try {
       const res = await sendApiRequest('delete_assignment', { assignmentId });
       if (res && res.success) {
         setSuccessMsg('Assignment deleted successfully.');
         setDeleteConfirm({ isOpen: false, id: null, title: '' });
+        setAssignments(prev => prev.filter(a => (a.assignmentId || a.assignment_id) !== assignmentId));
+        await loadAssignments();
+      } else if (res?.error?.code === 'NOT_FOUND') {
+        setSuccessMsg('Assignment was already removed.');
+        setDeleteConfirm({ isOpen: false, id: null, title: '' });
+        setAssignments(prev => prev.filter(a => (a.assignmentId || a.assignment_id) !== assignmentId));
         await loadAssignments();
       } else {
         setError(res?.error?.message || 'Failed to delete assignment.');
       }
     } catch (err) {
       setError('Network error deleting assignment.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -638,6 +650,7 @@ export default function Assignments({ onNavigate }) {
               <button
                 type="button"
                 className="btn-back-link"
+                disabled={deleting}
                 onClick={() => setDeleteConfirm({ isOpen: false, id: null, title: '' })}
               >
                 Cancel
@@ -645,11 +658,12 @@ export default function Assignments({ onNavigate }) {
               <button
                 type="button"
                 className="btn-primary"
-                style={{ width: 'auto', background: 'var(--danger-600)', padding: '0 20px' }}
+                disabled={deleting}
+                style={{ width: 'auto', background: 'var(--danger-600)', padding: '0 20px', opacity: deleting ? 0.7 : 1, cursor: deleting ? 'not-allowed' : 'pointer' }}
                 onClick={executeDeleteAssignment}
               >
                 <Trash2 size={16} />
-                <span>Confirm Delete</span>
+                <span>{deleting ? 'Deleting...' : 'Confirm Delete'}</span>
               </button>
             </div>
           </div>

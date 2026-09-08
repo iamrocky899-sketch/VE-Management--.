@@ -20,6 +20,7 @@ import { NoticesApi, ReportsApi, SettingsApi, CalendarApi, PracticalsApi } from 
 import { SyncApi } from './api/sync.js';
 import { FilesApi } from './api/files.js';
 import { AcademicYearsApi } from './api/academic_years.js';
+import { AssignmentsApi } from './api/assignments.js';
 
 export async function routeRequest(request, env, corsHeaders) {
   const url = new URL(request.url);
@@ -187,8 +188,15 @@ export async function routeRequest(request, env, corsHeaders) {
 
     case 'get_assignments':
     case 'parent_assignments':
-      const { results: asgResults } = await env.DB.prepare(`SELECT * FROM assignments WHERE status = 'ACTIVE' ORDER BY due_date ASC`).all();
-      return successResponse({ assignments: asgResults || [] }, 'get_assignments', 200, corsHeaders);
+      return AssignmentsApi.getAssignments(env, session, payload, corsHeaders);
+
+    case 'save_assignments':
+    case 'save_assignment':
+      return AssignmentsApi.saveAssignments(env, session, payload, corsHeaders);
+
+    case 'delete_assignments':
+    case 'delete_assignment':
+      return AssignmentsApi.deleteAssignment(env, session, payload, corsHeaders);
 
     case 'get_achievements':
     case 'parent_achievements':
