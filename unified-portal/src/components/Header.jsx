@@ -13,6 +13,9 @@ export default function Header({ onToggleMobileNav, pageTitle = 'Dashboard' }) {
         >
           <Menu size={22} />
         </button>
+      </div>
+
+      <div className="header-center">
         <h2 className="header-title">{pageTitle}</h2>
       </div>
 

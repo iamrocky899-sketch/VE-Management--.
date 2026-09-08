@@ -241,6 +241,8 @@ class MainActivity : AppCompatActivity() {
         val settings: WebSettings = webView.settings
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
+        settings.databaseEnabled = true
+        settings.cacheMode = WebSettings.LOAD_DEFAULT
         settings.allowFileAccess = false
         settings.allowContentAccess = true
         @Suppress("DEPRECATION")
@@ -543,17 +545,19 @@ class MainActivity : AppCompatActivity() {
             dayOverridesJson: String,
             cnhJson: String
         ) {
-            try {
-                AttendanceReminderScheduler.saveNativeState(
-                    this@MainActivity,
-                    timetableJson,
-                    settingsJson,
-                    recordedAttendanceJson,
-                    dayOverridesJson,
-                    cnhJson
-                )
-            } catch (e: Exception) {
-                android.util.Log.e("MainActivity", "Error syncing native reminder state: ${e.message}")
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    AttendanceReminderScheduler.saveNativeState(
+                        this@MainActivity,
+                        timetableJson,
+                        settingsJson,
+                        recordedAttendanceJson,
+                        dayOverridesJson,
+                        cnhJson
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "Error syncing native reminder state: ${e.message}")
+                }
             }
         }
 

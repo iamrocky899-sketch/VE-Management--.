@@ -9,8 +9,15 @@ import { Security } from '../security.js';
 export const ExamsApi = {
   async getExaminations(env, session, payload, corsHeaders) {
     const classParam = payload.class ? String(payload.class) : null;
+    const academicYear = payload.academicYear || payload.academic_year || null;
+
     let query = `SELECT * FROM examinations WHERE status != 'DRAFT'`;
     const params = [];
+
+    if (academicYear) {
+      query += ` AND academic_year = ?`;
+      params.push(academicYear);
+    }
     if (classParam) {
       query += ` AND (class = ? OR class = 'ALL')`;
       params.push(classParam);
@@ -24,11 +31,16 @@ export const ExamsApi = {
     const classParam = payload.class ? String(payload.class) : null;
     const examParam = payload.exam ? String(payload.exam) : null;
     const studentIdParam = payload.studentId ? String(payload.studentId) : null;
+    const academicYear = payload.academicYear || payload.academic_year || null;
 
     let query = `SELECT m.*, s.student_name, s.roll_no FROM marks m
                  JOIN students s ON m.student_id = s.student_id WHERE 1=1`;
     const params = [];
 
+    if (academicYear) {
+      query += ` AND m.academic_year = ?`;
+      params.push(academicYear);
+    }
     if (classParam) {
       query += ` AND m.class = ?`;
       params.push(classParam);
@@ -53,11 +65,16 @@ export const ExamsApi = {
   async getExamResults(env, session, payload, corsHeaders) {
     const classParam = payload.class ? String(payload.class) : null;
     const studentIdParam = payload.studentId ? String(payload.studentId) : null;
+    const academicYear = payload.academicYear || payload.academic_year || null;
 
     let query = `SELECT r.*, s.student_name, s.roll_no FROM exam_results r
                  JOIN students s ON r.student_id = s.student_id WHERE 1=1`;
     const params = [];
 
+    if (academicYear) {
+      query += ` AND r.academic_year = ?`;
+      params.push(academicYear);
+    }
     if (classParam) {
       query += ` AND r.class = ?`;
       params.push(classParam);

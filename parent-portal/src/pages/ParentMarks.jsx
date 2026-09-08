@@ -17,6 +17,8 @@ export default function ParentMarks({ setActivePage }) {
   const [dashboardData, setDashboardData] = useState(null);
   const [allMarksList, setAllMarksList] = useState([]);
   const [selectedExam, setSelectedExam] = useState('1st Unit Test');
+  const [selectedAcademicYear, setSelectedAcademicYear] = useState('2026-2027');
+  const [availableAcademicYears, setAvailableAcademicYears] = useState(['2026-2027', '2025-2026']);
 
   // 4 Standard Institutional Exams
   const EXAMS = [
@@ -35,7 +37,7 @@ export default function ParentMarks({ setActivePage }) {
       // Parallel execution: fetch Dashboard and Marks simultaneously
       const [dashRes, marksRes] = await Promise.all([
         ApiService.getParentDashboard(user?.token, isManual),
-        ApiService.getMarks(user?.token, { studentId: selectedChildId }, isManual)
+        ApiService.getMarks(user?.token, { studentId: selectedChildId, academicYear: selectedAcademicYear }, isManual)
       ]);
 
       if (dashRes && dashRes.success && dashRes.data) {
@@ -63,7 +65,7 @@ export default function ParentMarks({ setActivePage }) {
     if (user?.token) {
       loadData();
     }
-  }, [user?.token, selectedChildId]);
+  }, [user?.token, selectedChildId, selectedAcademicYear]);
 
   const childrenSummaries = dashboardData?.children || [];
 
@@ -188,7 +190,20 @@ export default function ParentMarks({ setActivePage }) {
           <span>Back to Dashboard</span>
         </button>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Session:</span>
+            <select
+              value={selectedAcademicYear}
+              onChange={(e) => setSelectedAcademicYear(e.target.value)}
+              style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.8rem', fontWeight: 600, background: '#f8fafc', color: '#1e293b' }}
+            >
+              {availableAcademicYears.map(yr => (
+                <option key={yr} value={yr}>{yr} {yr === '2026-2027' ? '(Current)' : '(Historical)'}</option>
+              ))}
+            </select>
+          </div>
+
           <button
             type="button"
             onClick={handlePrint}

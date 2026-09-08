@@ -11,7 +11,31 @@ import { successResponse, errorResponse } from '../response.js';
 import { Security } from '../security.js';
 import { formatStudentRecord } from './students.js';
 
+// Lightweight in-memory rate limiter per Worker isolate (0 D1 writes consumed)
+const syncRateLimitMap = new Map(); // key: identifier -> { count, windowStart }
+const MAX_SYNCS_PER_WINDOW = 5;
+const WINDOW_DURATION_MS = 60 * 1000; // 60 seconds
+
+function checkSyncRateLimit(identifier) {
+  const now = Date.now();
+  const entry = syncRateLimitMap.get(identifier);
+  if (!entry || (now - entry.windowStart) > WINDOW_DURATION_MS) {
+    syncRateLimitMap.set(identifier, { count: 1, windowStart: now });
+    return { allowed: true };
+  }
+  if (entry.count >= MAX_SYNCS_PER_WINDOW) {
+    const retryAfter = Math.ceil((WINDOW_DURATION_MS - (now - entry.windowStart)) / 1000);
+    return { allowed: false, retryAfter };
+  }
+  entry.count++;
+  return { allowed: true };
+}
+
 export const SyncApi = {
+  _resetRateLimits() {
+    syncRateLimitMap.clear();
+  },
+
   /**
    * Processes batched offline changes uploaded from Android or web clients.
    * Enforces idempotency via sync_metadata and validates teacher academic scopes.
@@ -21,13 +45,30 @@ export const SyncApi = {
       return errorResponse('UNAUTHORIZED', 'Write permission denied for sync upload', 403, 'sync_upload', corsHeaders);
     }
 
+    // Circuit Breaker Rate Limit Check (0 D1 writes consumed)
+    const rateLimitKey = session.userId || payload.schoolId || 'global_device';
+    const rateLimitCheck = checkSyncRateLimit(rateLimitKey);
+    if (!rateLimitCheck.allowed) {
+      return errorResponse(
+        'TOO_MANY_REQUESTS',
+        `Sync rate limit exceeded (maximum 5 sync uploads per minute). Please retry in ${rateLimitCheck.retryAfter}s.`,
+        429,
+        'sync_upload',
+        corsHeaders
+      );
+    }
+
     const schoolId = payload.schoolId || session.schoolId || env.SCHOOL_ID || 'GAMERI-HSS-001';
     const clientTimestamp = payload.clientSyncTimestamp || new Date().toISOString();
     const clientVersion = payload.clientVersion || 'Android_5.7';
-    const syncId = String(payload.syncId || `SYNC_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`);
-    const academicYear = payload.academicYear || '2026-2027';
+    const syncId = payload.syncId || `SYNC_SRV_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    let academicYear = payload.academicYear;
+    if (!academicYear) {
+      const curYear = await env.DB.prepare("SELECT year_name FROM academic_years WHERE is_current = 1 LIMIT 1").first();
+      academicYear = curYear?.year_name || '2026-2027';
+    }
 
-    // 1. Idempotency Check
+    // 1. Pre-execution Idempotency Check (0 entity writes executed if duplicate)
     const existingSync = await env.DB.prepare(
       `SELECT * FROM sync_metadata WHERE sync_id = ?`
     ).bind(syncId).first();
@@ -62,7 +103,7 @@ export const SyncApi = {
       }
     }
 
-    // 2. Process Students
+    // 2. Process Students (Schema-aligned: aadhaar column + change detection)
     if (payload.students && Array.isArray(payload.students) && payload.students.length > 0) {
       entityTypes.push('Students');
       const studentStmts = [];
@@ -72,22 +113,42 @@ export const SyncApi = {
         const sClass = String(s.class || '9').trim();
         const sSec = String(s.section || 'A').trim();
         const sRoll = String(s.rollNo || s.roll || '').trim();
+        const sAdm = String(s.admissionNo || s.admission_no || s.admNo || ('ADM_' + sid)).trim();
         if (!sid || !sName) continue;
 
         studentStmts.push(
           env.DB.prepare(
-            `INSERT INTO students (student_id, school_id, student_name, roll_no, class, section, gender, dob, father_name, mother_name, mobile, aadhaar_no, village, status, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            `INSERT INTO students (student_id, school_id, admission_no, student_name, roll_no, class, section, gender, dob, father_name, mother_name, mobile, aadhaar, village, status, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
              ON CONFLICT(student_id) DO UPDATE SET
+               admission_no = COALESCE(excluded.admission_no, students.admission_no),
                student_name = excluded.student_name,
                roll_no = excluded.roll_no,
                class = excluded.class,
                section = excluded.section,
                mobile = COALESCE(excluded.mobile, students.mobile),
+               aadhaar = COALESCE(excluded.aadhaar, students.aadhaar),
                status = excluded.status,
-               updated_at = datetime('now')`
+               gender = excluded.gender,
+               dob = excluded.dob,
+               father_name = excluded.father_name,
+               mother_name = excluded.mother_name,
+               village = excluded.village,
+               updated_at = datetime('now')
+             WHERE students.student_name IS NOT excluded.student_name
+                OR students.roll_no IS NOT excluded.roll_no
+                OR students.class IS NOT excluded.class
+                OR students.section IS NOT excluded.section
+                OR (excluded.mobile IS NOT NULL AND students.mobile IS NOT excluded.mobile)
+                OR (excluded.aadhaar IS NOT NULL AND students.aadhaar IS NOT excluded.aadhaar)
+                OR students.status IS NOT excluded.status
+                OR students.gender IS NOT excluded.gender
+                OR students.dob IS NOT excluded.dob
+                OR students.father_name IS NOT excluded.father_name
+                OR students.mother_name IS NOT excluded.mother_name
+                OR students.village IS NOT excluded.village`
           ).bind(
-            sid, schoolId, sName, sRoll, sClass, sSec,
+            sid, schoolId, sAdm, sName, sRoll, sClass, sSec,
             s.gender || 'Male', s.dob || '', s.father || s.fatherName || '',
             s.mother || s.motherName || '', s.mobile || '', s.aadhaar || s.aadhaarNo || '',
             s.village || '', s.status || 'Active'
@@ -103,7 +164,7 @@ export const SyncApi = {
       }
     }
 
-    // 3. Process Attendance
+    // 3. Process Attendance (Conditional change detection: 0 writes if status unchanged)
     if (payload.attendance) {
       entityTypes.push('Attendance');
       const validStatuses = ['PRESENT', 'ABSENT', 'LATE', 'LEAVE', 'EXCUSED'];
@@ -155,7 +216,12 @@ export const SyncApi = {
               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ANDROID_OFFLINE_SYNC', ?, datetime('now'))
               ON CONFLICT(student_id, date, subject, component, period) DO UPDATE SET
                 status = excluded.status,
-                updated_at = datetime('now')`
+                reason = COALESCE(excluded.reason, attendance.reason),
+                session_id = COALESCE(excluded.session_id, attendance.session_id),
+                teacher_id = COALESCE(excluded.teacher_id, attendance.teacher_id),
+                updated_at = datetime('now')
+              WHERE attendance.status IS NOT excluded.status
+                 OR (excluded.reason IS NOT NULL AND attendance.reason IS NOT excluded.reason)`
             ).bind(
               attId, schoolId, sid, academicYear, sessionId,
               attDate, attClass, attSection, attSubj, attComp, attPeriod, session.userId,
@@ -200,7 +266,8 @@ export const SyncApi = {
                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'IT/ITeS', 'THEORY', '1', ?, 'PRESENT', 'ANDROID_OFFLINE_SYNC', datetime('now'))
                   ON CONFLICT(student_id, date, subject, component, period) DO UPDATE SET
                     status = 'PRESENT',
-                    updated_at = datetime('now')`
+                    updated_at = datetime('now')
+                  WHERE attendance.status IS NOT 'PRESENT'`
                 ).bind(attId, schoolId, cleanSid, academicYear, sessionId, dateKey, attClass, attSection, session.userId)
               );
 
@@ -237,7 +304,8 @@ export const SyncApi = {
                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'IT/ITeS', 'THEORY', '1', ?, ?, 'ANDROID_OFFLINE_SYNC', datetime('now'))
                   ON CONFLICT(student_id, date, subject, component, period) DO UPDATE SET
                     status = excluded.status,
-                    updated_at = datetime('now')`
+                    updated_at = datetime('now')
+                  WHERE attendance.status IS NOT excluded.status`
                 ).bind(attId, schoolId, cleanSid, academicYear, sessionId, attDate, attClass, attSection, session.userId, status)
               );
 
@@ -253,16 +321,7 @@ export const SyncApi = {
         }
       }
 
-      // Execute attendance statements in batch chunks
-      try {
-        await executeInChunks(env.DB, attendanceStmts);
-        results.entities.attendance = { count: attendanceStmts.length };
-        totalBatchSize += attendanceStmts.length;
-      } catch (e) {
-        errors.push(`Attendance batch execution error: ${e.message}`);
-      }
-
-      // Update AttendanceSessions metadata in batch
+      // Update AttendanceSessions parent records first to satisfy Foreign Key constraints
       const sessionStmts = [];
       for (const [_, agg] of dateSessionAggregates) {
         const sessionId = `ATT_SES_${agg.date}_${agg.class}_${agg.section}`;
@@ -278,7 +337,12 @@ export const SyncApi = {
               present_count = excluded.present_count,
               absent_count = excluded.absent_count,
               total_students = MAX(excluded.total_students, attendance_sessions.total_students),
-              updated_at = datetime('now')`
+              status = excluded.status,
+              updated_at = datetime('now')
+            WHERE attendance_sessions.present_count IS NOT excluded.present_count
+               OR attendance_sessions.absent_count IS NOT excluded.absent_count
+               OR attendance_sessions.total_students < excluded.total_students
+               OR attendance_sessions.status IS NOT excluded.status`
           ).bind(
             sessionId, schoolId, academicYear, agg.date, agg.class, agg.section,
             Math.max(rosterCount, agg.present.size + agg.absent.size),
@@ -292,31 +356,60 @@ export const SyncApi = {
       } catch (e) {
         errors.push(`Sessions batch error: ${e.message}`);
       }
+
+      // Execute attendance statements in batch chunks
+      try {
+        await executeInChunks(env.DB, attendanceStmts);
+        results.entities.attendance = { count: attendanceStmts.length };
+        totalBatchSize += attendanceStmts.length;
+      } catch (e) {
+        errors.push(`Attendance batch execution error: ${e.message}`);
+      }
     }
 
-    // 4. Process Marks
+    // 4. Process Marks (Schema-aligned: exam, theory, practical, total + change detection)
     if (payload.marks && typeof payload.marks === 'object') {
       entityTypes.push('Marks');
       const markStmts = [];
       const examNameMap = { '0': '1st Unit Test', '1': 'Half Yearly', '2': '2nd Unit Test', '3': 'Final Exam' };
 
+      // Single lookup for student roster metadata if not already fetched
+      let stuMapForMarks = null;
+      if (typeof stuMap !== 'undefined') {
+        stuMapForMarks = stuMap;
+      } else {
+        const { results: allStudentsMarks } = await env.DB.prepare("SELECT student_id, class, section FROM students").all();
+        stuMapForMarks = new Map((allStudentsMarks || []).map(s => [s.student_id, s]));
+      }
+
       if (Array.isArray(payload.marks)) {
         for (const m of payload.marks) {
           const sid = String(m.studentId || m.id || '').trim();
           if (!sid) continue;
-          const markId = m.markId || `MRK_${schoolId}_${academicYear.replace(/[^a-zA-Z0-9]/g, '_')}_${sid}_${(m.examName || m.exam || 'Half_Yearly').replace(/[^a-zA-Z0-9]/g, '_')}`;
+          const stu = stuMapForMarks.get(sid);
+          const mClass = stu?.class ? String(stu.class) : '9';
+          const mSec = stu?.section ? String(stu.section) : 'A';
+          const examName = m.examName || m.exam || 'Half Yearly';
+          const theory = Number(m.theory !== undefined ? m.theory : (m.theory_marks !== undefined ? m.theory_marks : 0));
+          const practical = Number(m.practical !== undefined ? m.practical : (m.practical_marks !== undefined ? m.practical_marks : 0));
+          const total = theory + practical;
+          const markId = m.markId || `MRK_${schoolId}_${academicYear.replace(/[^a-zA-Z0-9]/g, '_')}_${sid}_${examName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
           markStmts.push(
             env.DB.prepare(
-              `INSERT INTO marks (mark_id, school_id, student_id, academic_year, exam_name, theory_marks, practical_marks, total_marks, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+              `INSERT INTO marks (mark_id, school_id, student_id, academic_year, class, section, exam, subject, component, theory, practical, total, max_marks, status, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'IT/ITeS', 'THEORY', ?, ?, ?, 100.0, 'SUBMITTED', datetime('now'))
                ON CONFLICT(mark_id) DO UPDATE SET
-                 theory_marks = excluded.theory_marks,
-                 practical_marks = excluded.practical_marks,
-                 total_marks = excluded.total_marks,
-                 updated_at = datetime('now')`
+                 theory = excluded.theory,
+                 practical = excluded.practical,
+                 total = excluded.total,
+                 updated_at = datetime('now')
+               WHERE marks.theory IS NOT excluded.theory
+                  OR marks.practical IS NOT excluded.practical
+                  OR marks.total IS NOT excluded.total`
             ).bind(
-              markId, schoolId, sid, academicYear, m.examName || m.exam || 'Half Yearly',
-              Number(m.theory || 0), Number(m.practical || 0), Number(m.theory || 0) + Number(m.practical || 0)
+              markId, schoolId, sid, academicYear, mClass, mSec, examName,
+              theory, practical, total
             )
           );
         }
@@ -324,23 +417,31 @@ export const SyncApi = {
         for (const sid in payload.marks) {
           const studentMarks = payload.marks[sid];
           if (studentMarks && typeof studentMarks === 'object') {
+            const stu = stuMapForMarks.get(sid);
+            const mClass = stu?.class ? String(stu.class) : '9';
+            const mSec = stu?.section ? String(stu.section) : 'A';
+
             for (const examKey in studentMarks) {
               const examName = examNameMap[examKey] || examKey;
               const entry = studentMarks[examKey];
-              const theory = Number(entry.t || entry.theory || 0);
-              const practical = Number(entry.p || entry.practical || 0);
+              const theory = Number(entry.t !== undefined ? entry.t : (entry.theory !== undefined ? entry.theory : 0));
+              const practical = Number(entry.p !== undefined ? entry.p : (entry.practical !== undefined ? entry.practical : 0));
+              const total = theory + practical;
               const markId = `MRK_${schoolId}_${academicYear.replace(/[^a-zA-Z0-9]/g, '_')}_${sid}_${examName.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
               markStmts.push(
                 env.DB.prepare(
-                  `INSERT INTO marks (mark_id, school_id, student_id, academic_year, exam_name, theory_marks, practical_marks, total_marks, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                  `INSERT INTO marks (mark_id, school_id, student_id, academic_year, class, section, exam, subject, component, theory, practical, total, max_marks, status, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 'IT/ITeS', 'THEORY', ?, ?, ?, 100.0, 'SUBMITTED', datetime('now'))
                    ON CONFLICT(mark_id) DO UPDATE SET
-                     theory_marks = excluded.theory_marks,
-                     practical_marks = excluded.practical_marks,
-                     total_marks = excluded.total_marks,
-                     updated_at = datetime('now')`
-                ).bind(markId, schoolId, sid, academicYear, examName, theory, practical, theory + practical)
+                     theory = excluded.theory,
+                     practical = excluded.practical,
+                     total = excluded.total,
+                     updated_at = datetime('now')
+                   WHERE marks.theory IS NOT excluded.theory
+                      OR marks.practical IS NOT excluded.practical
+                      OR marks.total IS NOT excluded.total`
+                ).bind(markId, schoolId, sid, academicYear, mClass, mSec, examName, theory, practical, total)
               );
             }
           }
@@ -355,7 +456,7 @@ export const SyncApi = {
       }
     }
 
-    // 5. Process Notes
+    // 5. Process Notes (Change detection: 0 writes if unchanged)
     if (payload.notes && Array.isArray(payload.notes) && payload.notes.length > 0) {
       entityTypes.push('Notes');
       const noteStmts = [];
@@ -373,7 +474,10 @@ export const SyncApi = {
                title = excluded.title,
                class = excluded.class,
                subject = excluded.subject,
-               updated_at = datetime('now')`
+               updated_at = datetime('now')
+             WHERE notes.title IS NOT excluded.title
+                OR notes.class IS NOT excluded.class
+                OR notes.subject IS NOT excluded.subject`
           ).bind(noteId, schoolId, title, nClass, nSubject)
         );
 
@@ -394,7 +498,11 @@ export const SyncApi = {
                    unit_title = excluded.unit_title,
                    description = excluded.description,
                    display_order = excluded.display_order,
-                   updated_at = datetime('now')`
+                   updated_at = datetime('now')
+                 WHERE note_units.unit_number IS NOT excluded.unit_number
+                    OR note_units.unit_title IS NOT excluded.unit_title
+                    OR note_units.description IS NOT excluded.description
+                    OR note_units.display_order IS NOT excluded.display_order`
               ).bind(unitId, schoolId, noteId, unitNum, unitTitle, desc, unitNum)
             );
 
@@ -416,7 +524,11 @@ export const SyncApi = {
                        answer_text = excluded.answer_text,
                        type = excluded.type,
                        display_order = excluded.display_order,
-                       updated_at = datetime('now')`
+                       updated_at = datetime('now')
+                     WHERE note_questions.question_text IS NOT excluded.question_text
+                        OR note_questions.answer_text IS NOT excluded.answer_text
+                        OR note_questions.type IS NOT excluded.type
+                        OR note_questions.display_order IS NOT excluded.display_order`
                   ).bind(qId, schoolId, unitId, qText, aText, qType, qOrder)
                 );
               }
@@ -430,6 +542,26 @@ export const SyncApi = {
         totalBatchSize += noteStmts.length;
       } catch (e) {
         errors.push(`Notes batch error: ${e.message}`);
+      }
+    }
+
+    // 5b. Process Timetable (Stored in settings as 'TIMETABLE' with change detection)
+    if (payload.timetable) {
+      entityTypes.push('Timetable');
+      try {
+        const timetableStr = typeof payload.timetable === 'string' ? payload.timetable : JSON.stringify(payload.timetable);
+        await env.DB.prepare(
+          `INSERT INTO settings (key, school_id, value, category, description, updated_at)
+           VALUES ('TIMETABLE', ?, ?, 'ACADEMIC', 'School Timetable Configuration', datetime('now'))
+           ON CONFLICT(key) DO UPDATE SET
+             value = excluded.value,
+             updated_at = datetime('now')
+           WHERE settings.value IS NOT excluded.value`
+        ).bind(schoolId, timetableStr).run();
+        results.entities.timetable = { count: 1 };
+        totalBatchSize += 1;
+      } catch (e) {
+        errors.push(`Timetable sync error: ${e.message}`);
       }
     }
 
@@ -456,6 +588,10 @@ export const SyncApi = {
       JSON.stringify({ syncId, batchSize: totalBatchSize, entities: results.entities, errorsCount: errors.length }),
       syncStatus === 'PROCESSED' ? 'SUCCESS' : 'ERROR'
     ).run();
+
+    if (errors.length > 0) {
+      results.errors = errors;
+    }
 
     return successResponse(results, 'sync_upload', 200, corsHeaders);
   },
@@ -494,7 +630,12 @@ export const SyncApi = {
       notes = nRes || [];
     } else if (role === 'TEACHER') {
       // Scoped to Teacher's Assigned Classes
-      const scope = await Security.getTeacherAcademicScope(env.DB, userId, payload.academicYear || '2026-2027');
+      let downloadYear = payload.academicYear;
+      if (!downloadYear) {
+        const curYear = await env.DB.prepare("SELECT year_name FROM academic_years WHERE is_current = 1 LIMIT 1").first();
+        downloadYear = curYear?.year_name || '2026-2027';
+      }
+      const scope = await Security.getTeacherAcademicScope(env.DB, userId, downloadYear);
       const teacherClasses = scope.classes || [];
 
       if (teacherClasses.length > 0) {
@@ -586,6 +727,12 @@ export const SyncApi = {
     const { results: calRes } = await env.DB.prepare(`SELECT * FROM calendar`).all();
     const { results: setRes } = await env.DB.prepare(`SELECT * FROM settings`).all();
 
+    const timetableRow = (setRes || []).find(s => s.key === 'TIMETABLE');
+    let timetableData = null;
+    if (timetableRow && timetableRow.value) {
+      try { timetableData = JSON.parse(timetableRow.value); } catch (e) { timetableData = timetableRow.value; }
+    }
+
     return successResponse({
       serverTimestamp: new Date().toISOString(),
       since: since,
@@ -593,6 +740,7 @@ export const SyncApi = {
       attendance: attendance,
       marks: marks,
       notes: enrichedNotes,
+      timetable: timetableData || [],
       activities: actRes || [],
       notices: ntcRes || [],
       calendar: calRes || [],

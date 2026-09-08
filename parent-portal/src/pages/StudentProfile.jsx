@@ -178,150 +178,156 @@ export default function StudentProfile({ setActivePage, setIsChangePasswordOpen 
         style={{
           background: 'linear-gradient(135deg, #1e3a8a 0%, #0284c7 60%, #0ea5e9 100%)',
           color: '#ffffff',
-          padding: '24px 28px',
+          padding: '24px 20px',
           borderRadius: '20px',
           marginBottom: '20px',
           boxShadow: 'var(--shadow-md)',
           position: 'relative',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center'
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-          {/* Profile Photo / Avatar with Upload Button */}
-          <div style={{ position: 'relative', flexShrink: 0 }}>
-            {student.photoUrl ? (
-              <img
-                src={student.photoUrl}
-                alt={getStudentDisplayName(student)}
-                style={{
-                  width: '80px',
-                  height: '80px',
-                  borderRadius: '50%',
-                  objectFit: 'cover',
-                  border: '3px solid rgba(255, 255, 255, 0.8)',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
-                }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: '80px',
-                  height: '80px',
-                  borderRadius: '50%',
-                  background: 'rgba(255, 255, 255, 0.2)',
-                  border: '3px solid rgba(255, 255, 255, 0.6)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.75rem',
-                  fontWeight: 900,
-                  color: '#ffffff',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
-                }}
-              >
-                {getInitials(getStudentDisplayName(student))}
-              </div>
-            )}
-
-            <label
-              htmlFor="student-photo-input"
+        {/* Profile Photo / Avatar with Upload Button */}
+        <div style={{ position: 'relative', margin: '0 auto 16px auto', flexShrink: 0 }}>
+          {student.photoUrl ? (
+            <img
+              src={student.photoUrl}
+              alt={getStudentDisplayName(student)}
               style={{
-                position: 'absolute',
-                bottom: '-2px',
-                right: '-2px',
-                background: '#ffffff',
-                color: '#1e3a8a',
+                width: '88px',
+                height: '88px',
                 borderRadius: '50%',
-                width: '28px',
-                height: '28px',
+                objectFit: 'cover',
+                border: '3px solid rgba(255, 255, 255, 0.85)',
+                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
+                display: 'block'
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: '88px',
+                height: '88px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.22)',
+                border: '3px solid rgba(255, 255, 255, 0.7)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                cursor: uploadingPhoto ? 'wait' : 'pointer',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                border: '1px solid #cbd5e1'
+                fontSize: '1.9rem',
+                fontWeight: 900,
+                color: '#ffffff',
+                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.2)'
               }}
-              title="Upload / Change Profile Photo"
             >
-              {uploadingPhoto ? <RefreshCw size={14} className="spin-anim" /> : <Camera size={14} />}
-            </label>
-            <input
-              id="student-photo-input"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              style={{ display: 'none' }}
-              onChange={handlePhotoFileChange}
-              disabled={uploadingPhoto}
-            />
-          </div>
-
-          <div style={{ flex: 1, minWidth: '220px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '6px' }}>
-              <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', margin: 0 }}>
-                {getStudentDisplayName(student)}
-              </h1>
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  background: 'rgba(255, 255, 255, 0.2)',
-                  color: '#ffffff',
-                  padding: '3px 10px',
-                  borderRadius: '12px',
-                  fontSize: '0.72rem',
-                  fontWeight: 700,
-                  backdropFilter: 'blur(4px)'
-                }}
-              >
-                <CheckCircle2 size={12} />
-                <span>{student.status || 'Active'}</span>
-              </span>
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  background: '#f59e0b',
-                  color: '#ffffff',
-                  padding: '3px 10px',
-                  borderRadius: '12px',
-                  fontSize: '0.72rem',
-                  fontWeight: 800
-                }}
-              >
-                {getCertificateLevel(student.class)}
-              </span>
+              {getInitials(getStudentDisplayName(student))}
             </div>
+          )}
 
-            <p style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.9)', margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <School size={14} />
-              <span>Gameri Higher Secondary School, Gamiri • Academic Year 2026–2027</span>
-            </p>
+          <label
+            htmlFor="student-photo-input"
+            style={{
+              position: 'absolute',
+              bottom: '0px',
+              right: '0px',
+              background: '#ffffff',
+              color: '#1e3a8a',
+              borderRadius: '50%',
+              width: '30px',
+              height: '30px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: uploadingPhoto ? 'wait' : 'pointer',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+              border: '2px solid #ffffff'
+            }}
+            title="Upload / Change Profile Photo"
+          >
+            {uploadingPhoto ? <RefreshCw size={14} className="spin-anim" /> : <Camera size={14} />}
+          </label>
+          <input
+            id="student-photo-input"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            style={{ display: 'none' }}
+            onChange={handlePhotoFileChange}
+            disabled={uploadingPhoto}
+          />
+        </div>
 
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{ background: 'rgba(255, 255, 255, 0.15)', padding: '4px 10px', borderRadius: '8px', fontSize: '0.76rem', fontWeight: 700 }}>
-                ID: {student.studentId || 'N/A'}
-              </span>
-              <span style={{ background: 'rgba(255, 255, 255, 0.15)', padding: '4px 10px', borderRadius: '8px', fontSize: '0.76rem', fontWeight: 700 }}>
-                Class {student.class || '9'} (Sec {student.section || 'A'})
-              </span>
-              <span style={{ background: 'rgba(255, 255, 255, 0.15)', padding: '4px 10px', borderRadius: '8px', fontSize: '0.76rem', fontWeight: 700 }}>
-                Roll No: {student.rollNo || 'N/A'}
-              </span>
-            </div>
-          </div>
+        {/* Student Name & Badges Centered */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '8px', maxWidth: '100%' }}>
+          <h1 style={{ fontSize: 'clamp(1.2rem, 4vw, 1.55rem)', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', margin: 0, wordBreak: 'break-word', textAlign: 'center' }}>
+            {getStudentDisplayName(student)}
+          </h1>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              background: 'rgba(255, 255, 255, 0.22)',
+              color: '#ffffff',
+              padding: '3px 10px',
+              borderRadius: '12px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              backdropFilter: 'blur(4px)'
+            }}
+          >
+            <CheckCircle2 size={12} />
+            <span>{student.status || 'Active'}</span>
+          </span>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              background: '#f59e0b',
+              color: '#ffffff',
+              padding: '3px 10px',
+              borderRadius: '12px',
+              fontSize: '0.72rem',
+              fontWeight: 800
+            }}
+          >
+            {getCertificateLevel(student.class)}
+          </span>
+        </div>
 
+        <p style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.92)', margin: '0 0 14px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flexWrap: 'wrap', textAlign: 'center' }}>
+          <School size={14} />
+          <span>Gameri Higher Secondary School, Gamiri • Academic Year 2026–2027</span>
+        </p>
+
+        {/* Meta pills centered */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '16px', maxWidth: '100%' }}>
+          <span style={{ background: 'rgba(255, 255, 255, 0.18)', padding: '4px 12px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700 }}>
+            ID: {student.studentId || 'N/A'}
+          </span>
+          <span style={{ background: 'rgba(255, 255, 255, 0.18)', padding: '4px 12px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700 }}>
+            Class {student.class || '9'} (Sec {student.section || 'A'})
+          </span>
+          <span style={{ background: 'rgba(255, 255, 255, 0.18)', padding: '4px 12px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700 }}>
+            Roll No: {student.rollNo || 'N/A'}
+          </span>
+        </div>
+
+        {/* Action Controls Centered */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <button
             type="button"
             onClick={() => fetchProfile(true)}
             disabled={refreshing}
             style={{
-              padding: '8px 14px',
-              borderRadius: '10px',
-              background: 'rgba(255, 255, 255, 0.15)',
+              padding: '10px 16px',
+              borderRadius: '12px',
+              background: 'rgba(255, 255, 255, 0.18)',
               color: '#ffffff',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
+              border: '1px solid rgba(255, 255, 255, 0.35)',
               fontSize: '0.8rem',
               fontWeight: 700,
               display: 'inline-flex',

@@ -34,7 +34,7 @@ export const AuthApi = {
     }
 
     const isValid = await verifyPassword(password, user.salt || '', user.password_hash || '');
-    if (!isValid && password !== '12345') {
+    if (!isValid) {
       return errorResponse('INVALID_PASSWORD', 'Invalid password', 401, 'auth_login', corsHeaders);
     }
 
@@ -98,7 +98,7 @@ export const AuthApi = {
     }
 
     const isMatch = await verifyPassword(oldPassword, user.salt || '', user.password_hash || '');
-    if (!isMatch && oldPassword !== '12345') {
+    if (!isMatch) {
       await env.DB.prepare(
         `INSERT INTO audit_logs (log_id, school_id, timestamp, action, actor_type, actor_id, details, status)
          VALUES (?, ?, datetime('now'), 'PASSWORD_CHANGE_FAILED', ?, ?, 'Incorrect old password', 'DENIED')`

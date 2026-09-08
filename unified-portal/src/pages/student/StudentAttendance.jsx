@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../state/AuthContext';
-import { ApiService } from '../../api/client';
+import { ApiService, resolveStudentGroup } from '../../api/client';
 import AttendanceCalendar from '../../components/AttendanceCalendar';
 import {
   CheckCircle2, AlertTriangle, Calendar as CalendarIcon,
   ShieldCheck, ArrowLeft, RefreshCw, Flame, User, Info, AlertCircle,
-  Download, FileText
+  Download, FileText, Users
 } from 'lucide-react';
 import { getStudentDisplayName } from '../../utils/formatters';
 
@@ -109,6 +109,7 @@ export default function StudentAttendance({ setActivePage }) {
                   <div><strong>Student ID / Admission No:</strong> ${report.student.admissionNo}</div>
                   <div><strong>Class & Section:</strong> Class ${report.student.class} - ${report.student.section}</div>
                   <div><strong>Roll Number:</strong> ${report.student.rollNo}</div>
+                  <div><strong>Student Group:</strong> ${resolveStudentGroup(report.student)}</div>
                   <div><strong>Vocational Level:</strong> ${report.student.certificateLevel}</div>
                   <div><strong>Academic Session:</strong> ${report.academicYear}</div>
                 </div>
@@ -215,6 +216,7 @@ export default function StudentAttendance({ setActivePage }) {
   const studentClass = user?.class || '9';
   const studentSection = user?.section || 'N/A';
   const studentRoll = user?.rollNo || '1';
+  const studentGroup = resolveStudentGroup(user);
 
   // Overall attendance calculations derived from backend summary or records
   const totalWorkingDays = summaryData?.totalWorkingDays ?? attendanceRecords.length;
@@ -325,8 +327,9 @@ export default function StudentAttendance({ setActivePage }) {
               <span>•</span>
               <span>Roll No <strong>{studentRoll}</strong></span>
               <span>•</span>
-              <span style={{ background: 'rgba(255,255,255,0.2)', padding: '1px 8px', borderRadius: '6px', fontWeight: 600 }}>
-                Group: <strong>{user?.group || 'Group Not Assigned'}</strong>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255,255,255,0.22)', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                <Users size={12} />
+                <span>Group: <strong>{studentGroup}</strong></span>
               </span>
             </div>
           </div>

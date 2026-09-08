@@ -4,12 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>IT/ITeS Dept Attendance System</title>
-    <!-- Fonts & Icons -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Fonts: Built-in Native System Fonts (-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif) -->
     <!-- Offline Bundled Core Libraries -->
-    <script src="libs/asseb_calendar_2026_27.js"></script>
     <script src="libs/sync_manager.js"></script>
-    <!-- Document Export Utilities are lazy-loaded on-demand for smooth startup performance -->
+    <!-- Document Export & Calendar Utilities are deferred/lazy-loaded on-demand for smooth startup performance -->
     <style>
         /* ==========================================================================
            DESIGN SYSTEM & UNIFIED CSS TOKENS
@@ -116,7 +114,7 @@
             top: 0;
             left: 0;
             width: 100%;
-            height: calc(72px + env(safe-area-inset-top));
+            height: calc(62px + env(safe-area-inset-top));
             background: var(--bg);
             z-index: 1490;
             pointer-events: none;
@@ -130,7 +128,7 @@
             min-height: 100dvh;
             margin: 0 auto;
             position: relative;
-            padding-top: calc(78px + env(safe-area-inset-top));
+            padding-top: calc(68px + env(safe-area-inset-top));
             padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
             padding-left: max(12px, env(safe-area-inset-left));
             padding-right: max(12px, env(safe-area-inset-right));
@@ -156,42 +154,70 @@
             transform: translateX(-50%);
             width: calc(100% - max(20px, env(safe-area-inset-left) + env(safe-area-inset-right)));
             max-width: 680px;
-            min-height: 52px;
+            min-height: 44px;
             background: var(--card-bg);
             border: 1px solid var(--glass-border);
-            border-radius: 26px;
+            border-radius: 22px;
             z-index: 1500;
             display: grid;
             grid-template-columns: 1fr auto 1fr;
             gap: 8px;
             align-items: center;
-            padding: 6px 16px;
+            padding: 4px 16px;
             color: var(--text);
             box-shadow: var(--shadow-md);
             box-sizing: border-box;
         }
 
-        /* Home Header Alignment */
-        #page-home header {
+        /* Home Header Alignment - Preferred Normal Layout Flow:
+           Header
+           ├── left/content area
+           └── right actions
+               └── Profile button
+        */
+        /* Home Header Alignment - Perfectly Centered Grid Layout:
+           [Spacer 46px] [Centered Content 1fr] [Profile Button 46px]
+        */
+        #page-home header,
+        .home-header {
             width: 100%;
-            text-align: center;
+            display: grid;
+            grid-template-columns: 46px 1fr 46px;
+            align-items: center;
+            justify-items: center;
+            gap: 10px;
+            padding: max(8px, env(safe-area-inset-top, 8px)) max(8px, env(safe-area-inset-right, 8px)) 16px max(8px, env(safe-area-inset-left, 8px));
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .header-spacer {
+            width: 46px;
+            height: 46px;
+            visibility: hidden;
+            pointer-events: none;
+            flex-shrink: 0;
+        }
+
+        .header-content {
+            width: 100%;
+            min-width: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 8px 0 16px;
-            box-sizing: border-box;
+            text-align: center;
         }
 
         #header-welcome {
             text-align: center;
             width: 100%;
-            margin: 0 0 6px 0;
-            font-size: 1.85rem;
+            margin: 0 0 4px 0;
+            font-size: clamp(1.2rem, 5vw, 1.75rem);
             font-weight: 800;
             color: var(--text);
-            letter-spacing: -0.5px;
-            line-height: 1.2;
+            letter-spacing: -0.4px;
+            line-height: 1.25;
             word-break: break-word;
             overflow-wrap: break-word;
         }
@@ -200,30 +226,111 @@
             text-align: center;
             width: 100%;
             margin: 0;
-            font-size: 0.88rem;
+            font-size: clamp(0.75rem, 3vw, 0.86rem);
             color: var(--text-muted);
-            line-height: 1.45;
+            line-height: 1.4;
             word-break: break-word;
             overflow-wrap: break-word;
         }
 
+        .header-actions {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .profile-btn {
+            cursor: pointer;
+            width: 46px;
+            height: 46px;
+            min-width: 44px;
+            min-height: 44px;
+            border-radius: 50%;
+            background: var(--glass-bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1.5px solid var(--glass-border);
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+
+        .profile-btn:active {
+            transform: scale(0.95);
+        }
+
+        .profile-btn span {
+            font-size: 1.35rem;
+            line-height: 1;
+        }
+
+        .profile-btn img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
         /* Birthday Bar Banner - Visually centered horizontally within usable Home screen */
         .birthday-bar {
-            width: 100%;
-            max-width: 540px;
-            margin: 0 auto 18px auto;
+            width: fit-content;
+            max-width: min(92%, 480px);
+            margin: 0 auto 20px auto;
             box-sizing: border-box;
             background: rgba(255, 105, 180, 0.12);
             border: 1px solid rgba(255, 105, 180, 0.35);
             border-radius: 16px;
-            padding: 12px 18px;
+            padding: 12px 22px;
             display: none; /* toggled to flex via JS */
+            flex-direction: row;
             align-items: center;
             justify-content: center;
-            gap: 14px;
+            gap: 12px;
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
             box-shadow: 0 4px 16px rgba(255, 105, 180, 0.15);
+            text-align: center;
+        }
+
+        .birthday-icon {
+            font-size: 1.6rem;
+            line-height: 1;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .birthday-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .birthday-title {
+            font-weight: 800;
+            color: #ff69b4;
+            font-size: 0.95rem;
+            line-height: 1.25;
+            letter-spacing: 0.2px;
+            margin-bottom: 2px;
+        }
+
+        .birthday-names {
+            font-size: 0.82rem;
+            color: var(--text);
+            line-height: 1.35;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            text-align: center;
         }
 
         /* Dashboard Statistics Grid */
@@ -608,6 +715,127 @@
             box-shadow: var(--shadow-lg) !important;
         }
 
+        /* Specialized Responsive Architecture for Profile Modal (#modal-profile) */
+        #modal-profile.modal {
+            overflow: hidden !important; /* Eliminate double scrollbar, delegate scrolling to content area */
+            padding: max(8px, env(safe-area-inset-top, 8px)) max(8px, env(safe-area-inset-right, 8px)) max(8px, env(safe-area-inset-bottom, 8px)) max(8px, env(safe-area-inset-left, 8px)) !important;
+        }
+
+        #modal-profile .profile-modal-card {
+            width: 100%;
+            max-width: min(94vw, 560px);
+            max-height: min(90vh, 900px) !important;
+            max-height: min(90dvh, 900px) !important;
+            height: auto;
+            display: flex !important;
+            flex-direction: column !important;
+            margin: auto !important;
+            padding: 0 !important;
+            border-radius: var(--radius-lg);
+            box-sizing: border-box;
+            position: relative;
+            background: var(--card-bg) !important;
+            border: 1px solid var(--glass-border) !important;
+            box-shadow: var(--shadow-lg) !important;
+            overflow: hidden !important; /* Locks header & tabs at top, single scroll in content */
+        }
+
+        .profile-modal-header {
+            flex-shrink: 0;
+            display: grid;
+            grid-template-columns: 80px 1fr 80px;
+            align-items: center;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--glass-border);
+            background: var(--card-bg);
+            box-sizing: border-box;
+        }
+
+        .profile-modal-tabs-bar {
+            flex-shrink: 0;
+            display: flex;
+            gap: 8px;
+            padding: 10px 18px;
+            background: rgba(0, 0, 0, 0.18);
+            border-bottom: 1px solid var(--glass-border);
+            box-sizing: border-box;
+        }
+
+        .profile-modal-tab-btn {
+            flex: 1 1 0px !important;
+            min-height: 48px !important; /* Minimum touch target: 48px */
+            padding: 8px 12px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 12px !important;
+            background: var(--glass-bg) !important;
+            color: var(--text) !important;
+            font-size: clamp(0.78rem, 2.5vw, 0.88rem) !important;
+            font-weight: 700 !important;
+            border: 1px solid var(--glass-border) !important;
+            cursor: pointer !important;
+            white-space: nowrap !important;
+            transition: all 0.2s ease !important;
+            touch-action: manipulation !important;
+            box-sizing: border-box !important;
+            text-align: center !important;
+        }
+
+        .profile-modal-tab-btn:active {
+            transform: scale(0.97) !important;
+        }
+
+        .profile-modal-tab-btn.active {
+            background: var(--accent-purple) !important;
+            color: #ffffff !important;
+            border-color: var(--accent-purple) !important;
+            box-shadow: 0 3px 12px rgba(157, 80, 187, 0.4) !important;
+        }
+
+        /* ONE Correct Scroll Region */
+        .profile-modal-scrollable {
+            flex: 1 1 auto !important;
+            min-height: 0 !important; /* Critical for flex scrolling */
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            padding: 16px 20px 48px 20px !important; /* Generous bottom clearance so bottom fields & save button are NEVER clipped */
+            overscroll-behavior: contain !important;
+            box-sizing: border-box !important;
+        }
+
+        .profile-modal-scrollable .form-group {
+            margin-bottom: 16px;
+        }
+
+        .profile-modal-scrollable .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .profile-modal-scrollable input,
+        .profile-modal-scrollable select,
+        .profile-modal-scrollable textarea {
+            width: 100%;
+            box-sizing: border-box;
+            border-radius: 8px;
+            padding: 8px 10px;
+            color: var(--text);
+            font-size: 0.9rem;
+        }
+
+        .profile-edit-actions-bar {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            padding-bottom: 24px;
+        }
+
         .modal button[onclick*="closeModal"],
         .modal button[onclick*="closeCamera"] {
             min-width: 44px;
@@ -974,9 +1202,11 @@
             .tile .title { font-size: 0.82rem; }
             .tile .subtitle { font-size: 0.58rem; letter-spacing: 0.3px; }
             .form-group label { font-size: 0.74rem; }
-            #page-home header { padding: 6px 0 12px; }
-            #header-welcome { font-size: 1.6rem; }
-            #header-desc { font-size: 0.82rem; }
+            #page-home header { padding: 6px 2px 12px; gap: 10px; }
+            #header-welcome { font-size: 1.45rem; }
+            #header-desc { font-size: 0.78rem; }
+            .profile-btn { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+            .profile-btn span { font-size: 1.25rem; }
         }
 
         @media (orientation: landscape) and (max-height: 520px) {
@@ -987,9 +1217,11 @@
                 padding-top: calc(50px + env(safe-area-inset-top));
                 padding-bottom: calc(85px + env(safe-area-inset-bottom));
             }
-            header { padding: 4px 0 8px; }
-            header h1 { font-size: 1.25rem; }
-            header p { font-size: 0.72rem; margin: 2px 0 0; }
+            #page-home header, header { padding: 4px 0 8px; gap: 8px; }
+            #header-welcome, header h1 { font-size: 1.25rem; }
+            #header-desc, header p { font-size: 0.72rem; margin: 2px 0 0; }
+            .profile-btn { width: 40px; height: 40px; min-width: 40px; min-height: 40px; }
+            .profile-btn span { font-size: 1.15rem; }
             .stats-grid { margin-bottom: 12px; gap: 8px; }
             .stat-card { padding: 8px 12px; }
             .stat-card h3 { font-size: 0.60rem; }
@@ -1038,12 +1270,8 @@
         <div style="display: flex; align-items: center; justify-content: flex-start;">
             <span id="top-date" style="font-size: 0.75rem; font-weight: 700;"></span>
         </div>
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;">
-            <span id="top-time" style="font-size: 0.7rem; font-weight: 700; color: var(--accent-purple);">00:00:00</span>
-            <div onclick="openModal('modal-profile'); renderProfile();" id="profile-icon-container" style="cursor:pointer; width:36px; height:36px; border-radius:50%; background:var(--glass-bg); display:flex; justify-content:center; align-items:center; border:1px solid var(--glass-border); overflow:hidden;">
-                <span id="profile-icon-placeholder" style="font-size:1.1rem;">👤</span>
-                <img id="profile-icon-img" style="width:100%; height:100%; object-fit:cover; display:none;">
-            </div>
+        <div style="display: flex; align-items: center; justify-content: center;">
+            <span id="top-time" style="font-size: 0.75rem; font-weight: 700; color: var(--accent-purple);">00:00:00</span>
         </div>
         <div style="display: flex; align-items: center; justify-content: flex-end; gap: 5px;">
             <span id="system-status" style="font-size:0.55rem; color:var(--accent-teal); border:1px solid var(--glass-border); padding:2px 6px; border-radius:10px;">Init...</span>
@@ -1054,16 +1282,25 @@
     <div class="container">
         <!-- HOME PAGE -->
         <section id="page-home" class="page active">
-            <header>
-                <h1 id="header-welcome">Welcome Teacher</h1>
-                <p id="header-desc">Vocational Teacher<br>Gameri Higher Secondary School</p>
+            <header class="home-header">
+                <div class="header-spacer" aria-hidden="true"></div>
+                <div class="header-content">
+                    <h1 id="header-welcome">Welcome Teacher</h1>
+                    <p id="header-desc">Vocational Teacher<br>Gameri Higher Secondary School</p>
+                </div>
+                <div class="header-actions">
+                    <div onclick="openModal('modal-profile'); renderProfile();" id="profile-icon-container" class="profile-btn" title="Teacher Profile" role="button" aria-label="Open Teacher Profile">
+                        <span id="profile-icon-placeholder">👤</span>
+                        <img id="profile-icon-img" alt="Profile">
+                    </div>
+                </div>
             </header>
 
             <div id="birthday-bar" class="birthday-bar">
-                <span style="font-size:1.5rem;">🎂</span>
-                <div style="flex:1;">
-                    <div style="font-weight:700; color:#ff69b4; font-size:0.9rem;">Happy Birthday!</div>
-                    <div id="birthday-names" style="font-size:0.8rem; color:var(--text);"></div>
+                <span class="birthday-icon" aria-hidden="true">🎂</span>
+                <div class="birthday-content">
+                    <div class="birthday-title">Happy Birthday!</div>
+                    <div id="birthday-names" class="birthday-names"></div>
                 </div>
             </div>
 
@@ -1269,8 +1506,8 @@
                     <span style="font-size: 0.75rem; color: var(--text-dim);">Ready for Bulk Action</span>
                 </div>
                 <div style="display:flex; gap:10px; width:100%;">
-                    <button onclick="bulkPromote()" style="flex:1; background:var(--accent-purple); border:none; color:white; padding:12px; border-radius:12px; font-weight:700; font-size:0.9rem;">⬆ Promote (+1)</button>
-                    <button onclick="bulkDrop()" style="flex:1; background:var(--accent-red); border:none; color:white; padding:12px; border-radius:12px; font-weight:700; font-size:0.9rem;">⬇ Drop (-1)</button>
+                    <button id="bulk-promote-btn" onclick="openPromotionWizardModal()" style="flex:1; background:var(--accent-purple); border:none; color:white; padding:12px; border-radius:12px; font-weight:700; font-size:0.9rem; cursor:pointer;">🎓 Promote Selected...</button>
+                    <button onclick="bulkDrop()" style="flex:1; background:var(--accent-red); border:none; color:white; padding:12px; border-radius:12px; font-weight:700; font-size:0.9rem; cursor:pointer;">⬇ Drop (-1)</button>
                 </div>
             </div>
 
@@ -1752,6 +1989,7 @@
             <div class="chip-container">
                 <div class="chip active" onclick="switchSettingsTab('general', this)">General</div>
                 <div class="chip" onclick="switchSettingsTab('staff', this)" id="tab-chip-staff">👥 Staff Management</div>
+                <div class="chip" onclick="switchSettingsTab('academic', this)" id="tab-chip-academic">📅 Academic Years</div>
                 <div class="chip" onclick="switchSettingsTab('header', this)">Header</div>
                 <div class="chip" onclick="switchSettingsTab('data', this)">Data</div>
                 <div class="chip" onclick="switchSettingsTab('more', this)">More</div>
@@ -1908,6 +2146,49 @@
                     <div id="staff-list-container" style="display: flex; flex-direction: column; gap: 10px; min-height: 120px;">
                         <div style="text-align: center; padding: 25px 10px; color: var(--text-dim); font-size: 0.8rem;">
                             Click Refresh or switch to this tab to load staff accounts.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ACADEMIC YEAR MANAGEMENT TAB CONTENT (Step 2) -->
+            <div id="set-content-academic" style="display: none;">
+                <div class="report-card" style="border-left-color: var(--accent-purple); padding: 18px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h3 style="margin: 0; font-size: 1.15rem; color: var(--accent-purple); display: flex; align-items: center; gap: 8px;">
+                                <span>📅 Academic Year Sessions</span>
+                            </h3>
+                            <p style="margin: 3px 0 0; font-size: 0.72rem; color: var(--text-dim);">
+                                Authoritative session lifecycle, active year switches, session closure &amp; record archives.
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="primary" onclick="openAddAcademicYearModal()" style="margin: 0; padding: 8px 14px; font-size: 0.78rem; font-weight: 700; border-radius: 10px; display: flex; align-items: center; gap: 4px; background: var(--accent-purple);">
+                                <span>➕ New Session</span>
+                            </button>
+                            <button onclick="loadAcademicYearsList()" style="background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border); color: var(--text); padding: 8px 12px; border-radius: 10px; font-size: 0.78rem; font-weight: 600; cursor: pointer;">
+                                🔄 Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Active Session Banner -->
+                    <div id="active-session-banner" style="background: rgba(157, 80, 187, 0.12); border: 1px solid rgba(157, 80, 187, 0.35); border-radius: 14px; padding: 14px; margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent-purple); font-weight: 700;">CURRENT ACTIVE SESSION</span>
+                            <span class="badge" style="background: #2ecc71; color: #fff; font-weight: 700; font-size: 0.72rem; padding: 2px 8px; border-radius: 8px;">ACTIVE</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px;">
+                            <div id="active-year-code-display" style="font-size: 1.4rem; font-weight: 800; color: var(--text);">2026-2027</div>
+                            <div id="active-year-dates-display" style="font-size: 0.75rem; color: var(--text-dim);">Apr 1, 2026 – Mar 31, 2027</div>
+                        </div>
+                    </div>
+
+                    <!-- Academic Years List Container -->
+                    <div id="academic-years-list-container" style="display: flex; flex-direction: column; gap: 10px; min-height: 120px;">
+                        <div style="text-align: center; padding: 25px 10px; color: var(--text-dim); font-size: 0.8rem;">
+                            Click Refresh or switch to this tab to load academic sessions.
                         </div>
                     </div>
                 </div>
@@ -2095,25 +2376,85 @@
                 </div>
             </div>
         </div>
-        <div id="modal-detail" class="modal"><div class="glass" style="padding: 25px; position: relative; margin-top: 20px;"><div style="position: absolute; top: 15px; right: 15px; display: flex; gap: 15px; align-items: center;"><button onclick="toggleEdit()" style="background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text); padding: 8px; border-radius: 10px;"><span id="edit-icon-text">✏️</span></button><button onclick="closeModal('modal-detail')" style="background: none; border: none; color: var(--text); font-size: 2rem;">&times;</button></div><h2 id="det-name-title" style="color: var(--accent-teal);">Student Detail</h2><div id="detail-content"></div><div id="detail-actions" style="margin-top: 25px; display: flex; flex-direction: column; gap: 12px;"><div style="display: flex; gap: 12px;"><button onclick="dropSingle()" style="flex: 1; padding: 16px; border-radius: 14px; border: 1.5px solid var(--accent-amber); color: var(--accent-amber); font-weight:700;">⬇ DROP</button><button onclick="promoteSingle()" style="flex: 1; padding: 16px; border-radius: 14px; border: 1.5px solid var(--accent-teal); color: var(--accent-teal); font-weight:700;">⬆ PROMOTE</button></div><button onclick="deleteStudentFromDetail()" style="width: 100%; padding: 14px; border-radius: 14px; border: 1.5px solid var(--accent-red); color: var(--accent-red); font-weight:700;">🗑️ DELETE STUDENT</button></div></div></div>
-        <div id="modal-profile" class="modal"><div class="glass" style="padding: 25px; position: relative; margin-top: 50px; margin-bottom: 50px;"><div style="position: absolute; top: 15px; right: 15px; display: flex; gap: 15px; align-items: center;"><button onclick="toggleProfileEdit()" style="background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text); padding: 8px; border-radius: 10px;"><span id="profile-edit-icon-text">✏️</span></button><button onclick="closeModal('modal-profile')" style="background: none; border: none; color: var(--text); font-size: 1.8rem;">&times;</button></div>
-
-            <!-- Staff Identity & Session Banner -->
-            <div id="profile-session-banner" style="margin-top: 15px; margin-bottom: 15px; background: rgba(0,242,254,0.06); border: 1px solid rgba(0,242,254,0.2); border-radius: 16px; padding: 14px;">
-                <div id="profile-session-content"></div>
-                <button onclick="signOutStaff()" style="width:100%; margin-top:10px; padding:8px; border-radius:8px; background:rgba(231,76,60,0.1); border:1px solid var(--accent-red); color:var(--accent-red); font-size:0.75rem; font-weight:700; cursor:pointer;">🚪 Sign Out</button>
-            </div>
-
-            <div class="chip-group" style="margin-top: 15px;"><div class="chip active" onclick="switchProfileTab('teacher', this)">Teacher Profile</div><div class="chip" onclick="switchProfileTab('school', this)">School Details</div></div><div id="profile-teacher-section">
-            <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:20px;">
-                <div onclick="document.getElementById('profile-upload').click()" style="width:100px; height:100px; border-radius:50%; background:var(--glass-bg); border:2px dashed var(--accent-teal); display:flex; justify-content:center; align-items:center; overflow:hidden; cursor:pointer; position:relative;">
-                    <span id="modal-profile-placeholder" style="font-size:2rem;">👤</span>
-                    <img id="modal-profile-img" style="width:100%; height:100%; object-fit:cover; display:none;">
-                    <div style="position:absolute; bottom:0; width:100%; background:rgba(0,0,0,0.5); color:white; font-size:0.6rem; text-align:center; padding:2px;">Upload</div>
+        <div id="modal-detail" class="modal">
+            <div class="glass" style="padding: 22px; position: relative; margin-top: 20px; box-sizing: border-box;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">
+                    <h2 id="det-name-title" style="color: var(--accent-teal); margin: 0; font-size: 1.2rem; font-weight: 800; min-width: 0; flex: 1; word-break: break-word; overflow-wrap: break-word;">Student Detail</h2>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-shrink: 0;">
+                        <button onclick="toggleEdit()" style="background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text); padding: 6px 12px; border-radius: 10px; font-size: 0.85rem;" title="Edit Student Profile"><span id="edit-icon-text">✏️</span></button>
+                        <button onclick="closeModal('modal-detail')" style="background: none; border: none; color: var(--text); font-size: 1.8rem; line-height: 1; cursor: pointer; padding: 2px 6px;" aria-label="Close">&times;</button>
+                    </div>
                 </div>
-                <input type="file" id="profile-upload" hidden accept="image/*" onchange="handleProfileUpload(event)">
+                <div id="detail-content"></div>
+                <div id="detail-actions" style="margin-top: 25px; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; gap: 12px;">
+                        <button onclick="dropSingle()" style="flex: 1; padding: 16px; border-radius: 14px; border: 1.5px solid var(--accent-amber); color: var(--accent-amber); font-weight:700;">⬇ DROP</button>
+                        <button id="btn-single-promote" onclick="openPromoteSingleModal()" style="flex: 1; padding: 16px; border-radius: 14px; border: 1.5px solid var(--accent-teal); color: var(--accent-teal); font-weight:700;">⬆ PROMOTE</button>
+                    </div>
+                    <button onclick="deleteStudentFromDetail()" style="width: 100%; padding: 14px; border-radius: 14px; border: 1.5px solid var(--accent-red); color: var(--accent-red); font-weight:700;">🗑️ DELETE STUDENT</button>
+                </div>
             </div>
-            <h2 style="color: var(--accent-teal); text-align:center;">Teacher Profile</h2><div id="teacher-form-fields"></div><button class="primary" onclick="saveTeacherProfile()" id="btn-save-teacher" style="display:none;">Save File</button></div><div id="profile-school-section" style="display: none;"><h2 style="color: var(--accent-amber);">School Details</h2><div id="school-form-fields"></div><button class="primary" onclick="saveSchoolDetails()" id="btn-save-school" style="display:none; background: linear-gradient(135deg, var(--accent-amber), #d35400);">Save File</button></div></div></div>
+        </div>
+        <!-- MODAL TEACHER & SCHOOL PROFILE (Fixed Header, Fixed Tabs, ONE Scrollable Content Region) -->
+        <div id="modal-profile" class="modal profile-modal-container">
+            <div class="profile-modal-card glass">
+                <!-- 1. Profile Modal Header (Fixed / Non-scrolling) -->
+                <div class="profile-modal-header">
+                    <div style="width: 80px;" aria-hidden="true"></div>
+                    <h3 style="color: var(--accent-teal); margin: 0; font-size: 1.15rem; font-weight: 800; text-align: center; white-space: nowrap;">Staff Account</h3>
+                    <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 80px;">
+                        <button onclick="toggleProfileEdit()" style="background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text); padding: 6px 10px; border-radius: 10px; font-size: 0.85rem; min-width: 36px; min-height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer;" title="Edit Staff Profile"><span id="profile-edit-icon-text">✏️</span></button>
+                        <button onclick="closeModal('modal-profile')" style="background: none; border: none; color: var(--text); font-size: 1.8rem; line-height: 1; cursor: pointer; padding: 2px 6px; min-width: 36px; min-height: 36px; display: flex; align-items: center; justify-content: center;" aria-label="Close">&times;</button>
+                    </div>
+                </div>
+
+                <!-- 2. Profile Modal Tabs Bar (Fixed / Non-scrolling under header) -->
+                <div class="profile-modal-tabs-bar">
+                    <button type="button" class="chip profile-modal-tab-btn active" onclick="switchProfileTab('teacher', this)">
+                        <span>👨‍🏫 Teacher Profile</span>
+                    </button>
+                    <button type="button" class="chip profile-modal-tab-btn" onclick="switchProfileTab('school', this)">
+                        <span>🏫 School Details</span>
+                    </button>
+                </div>
+
+                <!-- 3. Profile Content: ONE Scrollable Region from Top to Bottom -->
+                <div class="profile-modal-scrollable" id="profile-modal-scroll-area">
+                    <!-- Staff Identity & Session Banner -->
+                    <div id="profile-session-banner" style="margin-bottom: 16px; background: rgba(0,242,254,0.06); border: 1px solid rgba(0,242,254,0.2); border-radius: 16px; padding: 14px;">
+                        <div id="profile-session-content"></div>
+                    </div>
+
+                    <!-- Teacher Profile Section -->
+                    <div id="profile-teacher-section">
+                        <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:18px;">
+                            <div onclick="document.getElementById('profile-upload').click()" style="width:100px; height:100px; border-radius:50%; background:var(--glass-bg); border:2px dashed var(--accent-teal); display:flex; justify-content:center; align-items:center; overflow:hidden; cursor:pointer; position:relative; box-shadow: 0 4px 14px rgba(0,0,0,0.2);">
+                                <span id="modal-profile-placeholder" style="font-size:2rem;">👤</span>
+                                <img id="modal-profile-img" style="width:100%; height:100%; object-fit:cover; display:none;">
+                                <div style="position:absolute; bottom:0; width:100%; background:rgba(0,0,0,0.6); color:white; font-size:0.65rem; font-weight:700; text-align:center; padding:3px 0;">Upload</div>
+                            </div>
+                            <input type="file" id="profile-upload" hidden accept="image/*" onchange="handleProfileUpload(event)">
+                        </div>
+                        <h2 style="color: var(--accent-teal); text-align:center; margin: 0 0 16px 0; font-size: 1.2rem; font-weight: 800;">Teacher Profile</h2>
+                        <div id="teacher-form-fields"></div>
+                        <div id="teacher-edit-actions" class="profile-edit-actions-bar" style="display:none; gap:10px; margin-top:20px; padding-bottom:12px;">
+                            <button type="button" onclick="toggleProfileEdit()" style="flex:1; min-height:48px; border-radius:12px; background:rgba(255,255,255,0.08); border:1px solid var(--glass-border); color:var(--text); font-weight:700; font-size:0.9rem; cursor:pointer;">Cancel</button>
+                            <button type="button" class="primary" onclick="saveTeacherProfile()" id="btn-save-teacher" style="flex:1; min-height:48px; margin:0; border-radius:12px; font-weight:700; font-size:0.9rem;">Save File</button>
+                        </div>
+                    </div>
+
+                    <!-- School Profile Section -->
+                    <div id="profile-school-section" style="display: none;">
+                        <h2 style="color: var(--accent-amber); text-align:center; margin: 0 0 16px 0; font-size: 1.2rem; font-weight: 800;">School Details</h2>
+                        <div id="school-form-fields"></div>
+                        <div id="school-edit-actions" class="profile-edit-actions-bar" style="display:none; gap:10px; margin-top:20px; padding-bottom:12px;">
+                            <button type="button" onclick="toggleProfileEdit()" style="flex:1; min-height:48px; border-radius:12px; background:rgba(255,255,255,0.08); border:1px solid var(--glass-border); color:var(--text); font-weight:700; font-size:0.9rem; cursor:pointer;">Cancel</button>
+                            <button type="button" class="primary" onclick="saveSchoolDetails()" id="btn-save-school" style="flex:1; min-height:48px; margin:0; border-radius:12px; background: linear-gradient(135deg, var(--accent-amber), #d35400); font-weight:700; font-size:0.9rem;">Save File</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div id="modal-raw" class="modal"><div class="glass" style="padding: 25px; position: relative; margin-top: 50px; margin-bottom: 50px;"><button onclick="closeModal('modal-raw')" style="position: absolute; top: 15px; right: 15px; background: none; border: none; color: var(--text); font-size: 1.8rem;">&times;</button><h2 id="raw-modal-title" style="color: var(--accent-teal);">Add Raw Material</h2><div id="raw-form"></div><button class="primary" id="btn-save-raw" onclick="saveRawMaterial()">Save Record</button></div></div>
         <div id="modal-gle" class="modal"><div class="glass" style="padding: 25px; position: relative; margin-top: 50px; margin-bottom: 50px;"><button onclick="closeModal('modal-gle')" style="position: absolute; top: 15px; right: 15px; background: none; border: none; color: var(--text); font-size: 1.8rem;">&times;</button><h2 id="gle-modal-title" style="color: var(--accent-purple);">GL Entry</h2><div id="gle-form"></div><button class="primary" onclick="saveGLEEntry()">Save Entry</button></div></div>
 
@@ -2505,20 +2846,21 @@
         <!-- MODAL STUDENT PORTFOLIO VIEW (Tap-to-Open Portfolio) -->
         <!-- MODAL STUDENT 360° PORTFOLIO VIEW -->
         <div id="modal-student-portfolio" class="modal">
-            <div class="glass" style="padding: 20px; position: relative; margin-top: 15px; margin-bottom: 40px; border-radius: 20px;">
-                <button onclick="closeModal('modal-student-portfolio')" style="position: absolute; top: 15px; right: 15px; background: none; border: none; color: var(--text); font-size: 1.8rem; cursor:pointer;">&times;</button>
+            <div class="glass" style="padding: 20px; position: relative; margin-top: 15px; margin-bottom: 40px; border-radius: 20px; box-sizing: border-box;">
+                <!-- Dedicated Modal Top Control Bar (Prevents close button from overlapping content) -->
+                <div style="display: flex; justify-content: flex-end; align-items: center; width: 100%; margin-bottom: 4px;">
+                    <button onclick="closeModal('modal-student-portfolio')" style="background: none; border: none; color: var(--text); font-size: 1.8rem; line-height: 1; cursor: pointer; padding: 2px 8px;" aria-label="Close">&times;</button>
+                </div>
 
-                <!-- Student 360 Header -->
-                <div id="portfolio-view-header" style="margin-bottom: 16px;">
-                    <div style="display:flex; align-items:center; gap:14px;">
-                        <div id="portfolio-view-avatar" class="avatar" style="width:56px; height:56px; font-size:1.4rem; flex-shrink:0; background:linear-gradient(135deg, var(--accent-purple), var(--accent-teal));"></div>
-                        <div style="min-width:0; flex:1;">
-                            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                                <h2 id="portfolio-view-name" style="color: var(--accent-teal); margin:0; font-size:1.15rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></h2>
-                                <span id="portfolio-view-status-badge" class="badge" style="background:rgba(46,204,113,0.15); color:#2ecc71;">Active</span>
-                            </div>
-                            <p id="portfolio-view-meta" style="margin:3px 0 0; font-size:0.75rem; color:var(--text-dim);"></p>
+                <!-- Student 360 Header (Centered Horizontally, No Overlapping) -->
+                <div id="portfolio-view-header" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; margin-bottom: 20px; width: 100%; box-sizing: border-box;">
+                    <div id="portfolio-view-avatar" class="avatar" style="width: 72px; height: 72px; font-size: 1.8rem; margin: 0 auto 12px auto; background: linear-gradient(135deg, var(--accent-purple), var(--accent-teal)); border: 2.5px solid rgba(255,255,255,0.25); box-shadow: 0 6px 18px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center; border-radius: 50%; flex-shrink: 0;"></div>
+                    <div style="width: 100%; max-width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                        <h2 id="portfolio-view-name" style="color: var(--accent-teal); margin: 0 0 6px 0; font-size: 1.25rem; font-weight: 800; text-align: center; word-break: break-word; overflow-wrap: break-word; width: 100%;"></h2>
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                            <span id="portfolio-view-status-badge" class="badge" style="background: rgba(46,204,113,0.15); color: #2ecc71; font-weight: 700; padding: 3px 10px; border-radius: 12px; font-size: 0.72rem;">Active</span>
                         </div>
+                        <div id="portfolio-view-meta" style="font-size: 0.8rem; color: var(--text-dim); line-height: 1.4; text-align: center; word-break: break-word; overflow-wrap: break-word; max-width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px;"></div>
                     </div>
                 </div>
 
@@ -2973,9 +3315,174 @@
             </div>
         </div>
 
+        <!-- MODAL ADD / EDIT ACADEMIC YEAR (Step 2) -->
+        <div id="modal-academic-year" class="modal">
+            <div class="glass" style="padding: 24px; position: relative; margin-top: 30px; margin-bottom: 40px; border-radius: 20px; max-width: 480px; width: 92%;">
+                <button onclick="closeModal('modal-academic-year')" style="position: absolute; top: 15px; right: 15px; background: none; border: none; color: var(--text); font-size: 1.8rem; cursor:pointer;">&times;</button>
+                <h2 id="ay-modal-title" style="color: var(--accent-purple); margin-top:0; font-size:1.3rem;">📅 Add Academic Session</h2>
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label style="font-size:0.8rem; color:var(--text-dim); margin-bottom:4px; display:block;">Session Code (e.g. 2027-2028)</label>
+                    <input type="text" id="ay-code" placeholder="YYYY-YYYY" style="width:100%; padding:10px; border-radius:10px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); color:var(--text); font-weight:700;">
+                </div>
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label style="font-size:0.8rem; color:var(--text-dim); margin-bottom:4px; display:block;">Session Title</label>
+                    <input type="text" id="ay-title" placeholder="Academic Session 2027-2028" style="width:100%; padding:10px; border-radius:10px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); color:var(--text);">
+                </div>
+                <div style="display:flex; gap:10px; margin-bottom:12px;">
+                    <div class="form-group" style="flex:1;">
+                        <label style="font-size:0.8rem; color:var(--text-dim); margin-bottom:4px; display:block;">Start Date</label>
+                        <input type="date" id="ay-start-date" style="width:100%; padding:10px; border-radius:10px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); color:var(--text);">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label style="font-size:0.8rem; color:var(--text-dim); margin-bottom:4px; display:block;">End Date</label>
+                        <input type="date" id="ay-end-date" style="width:100%; padding:10px; border-radius:10px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); color:var(--text);">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label style="font-size:0.8rem; color:var(--text-dim); margin-bottom:4px; display:block;">Description (Optional)</label>
+                    <input type="text" id="ay-description" placeholder="Notes or remarks" style="width:100%; padding:10px; border-radius:10px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); color:var(--text);">
+                </div>
+                <div style="margin-bottom:18px; display:flex; align-items:center; gap:8px;">
+                    <input type="checkbox" id="ay-set-active" style="width:18px; height:18px;">
+                    <label for="ay-set-active" style="font-size:0.85rem; color:var(--text); cursor:pointer;">Set as Active Session immediately</label>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="closeModal('modal-academic-year')" style="flex:1; background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); color:var(--text); padding:12px; border-radius:12px; font-weight:600; cursor:pointer;">Cancel</button>
+                    <button class="primary" onclick="saveAcademicYearRecord()" style="flex:1; margin:0; padding:12px; font-weight:700; border-radius:12px; background:var(--accent-purple);">Save Session</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL ACADEMIC ACTION CONFIRM (Set Active / Close Session) -->
+        <div id="modal-academic-confirm" class="modal">
+            <div class="glass" style="padding: 24px; position: relative; margin-top: 50px; margin-bottom: 50px; border-radius: 20px; max-width: 440px; width: 92%; border-left: 4px solid var(--accent-purple);">
+                <button onclick="closeModal('modal-academic-confirm')" style="position: absolute; top: 15px; right: 15px; background: none; border: none; color: var(--text); font-size: 1.8rem; cursor:pointer;">&times;</button>
+                <h2 id="ay-confirm-title" style="color: var(--accent-purple); margin-top:0; font-size:1.25rem;">Confirm Action</h2>
+                <p id="ay-confirm-message" style="font-size:0.82rem; color:var(--text); line-height:1.4; margin-bottom:12px;"></p>
+                <p id="ay-confirm-sub" style="font-size:0.75rem; color:var(--text-dim); margin-bottom:16px;"></p>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="closeModal('modal-academic-confirm')" style="flex:1; background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); color:var(--text); padding:12px; border-radius:12px; font-weight:600; cursor:pointer;">Cancel</button>
+                    <button id="btn-ay-confirm-action" class="primary" style="flex:1; margin:0; padding:12px; font-weight:700; border-radius:12px; background:var(--accent-purple);">Confirm</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL PROMOTION WIZARD (Step 2) -->
+        <div id="modal-promotion-wizard" class="modal">
+            <div class="glass" style="padding: 22px; position: relative; margin-top: 20px; margin-bottom: 40px; border-radius: 20px; max-width: 580px; width: 94%; max-height: 88vh; display:flex; flex-direction:column; box-sizing:border-box;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--glass-border); padding-bottom:12px; margin-bottom:14px; flex-shrink:0;">
+                    <div>
+                        <h2 style="margin:0; font-size:1.25rem; color:var(--accent-purple); font-weight:800; display:flex; align-items:center; gap:8px;">
+                            <span>🎓 Promotion Wizard</span>
+                        </h2>
+                        <span id="promo-subtitle" style="font-size:0.75rem; color:var(--text-dim);">Promote students to next academic session</span>
+                    </div>
+                    <button onclick="closeModal('modal-promotion-wizard')" style="background:none; border:none; color:var(--text); font-size:1.8rem; line-height:1; cursor:pointer; padding:2px 6px;">&times;</button>
+                </div>
+
+                <!-- Session & Class Selectors -->
+                <div style="background:rgba(0,0,0,0.25); border:1px solid var(--glass-border); border-radius:14px; padding:12px; margin-bottom:14px; flex-shrink:0;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                        <div>
+                            <label style="font-size:0.72rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:3px;">Source Session</label>
+                            <div id="promo-source-year-label" style="font-weight:700; font-size:0.9rem; color:var(--accent-teal);">2026-2027</div>
+                        </div>
+                        <div>
+                            <label style="font-size:0.72rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:3px;">Target Session</label>
+                            <select id="promo-target-year-select" onchange="onPromoTargetYearChange()" style="width:100%; padding:6px 10px; border-radius:8px; background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); color:var(--text); font-weight:700; font-size:0.82rem;"></select>
+                        </div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <div>
+                            <label style="font-size:0.72rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:3px;">Source Class</label>
+                            <div id="promo-source-class-label" style="font-weight:700; font-size:0.9rem; color:var(--text);">Class 9</div>
+                        </div>
+                        <div>
+                            <label style="font-size:0.72rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:3px;">Target Class</label>
+                            <select id="promo-target-class-select" onchange="onPromoTargetClassChange()" style="width:100%; padding:6px 10px; border-radius:8px; background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); color:var(--text); font-weight:700; font-size:0.82rem;"></select>
+                        </div>
+                    </div>
+                    <div id="promo-class12-notice" style="display:none; background:rgba(46,204,113,0.12); border:1px solid #2ecc71; color:#2ecc71; padding:8px 10px; border-radius:10px; font-size:0.72rem; margin-top:8px;">
+                        🎓 Class 12 Course Completion: Selected students will be marked as Graduated / Passout with status COMPLETED.
+                    </div>
+                </div>
+
+                <!-- Tools & Table Header -->
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0;">
+                    <span id="promo-candidate-count" style="font-size:0.8rem; font-weight:700; color:var(--text);">Candidates (0)</span>
+                    <div style="display:flex; gap:6px;">
+                        <button onclick="promoAutoSequenceRolls()" style="background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); color:var(--accent-teal); padding:4px 8px; border-radius:8px; font-size:0.72rem; font-weight:600; cursor:pointer;">🔢 Auto-Roll (1..N)</button>
+                        <button onclick="promoKeepExistingRolls()" style="background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); color:var(--text-dim); padding:4px 8px; border-radius:8px; font-size:0.72rem; font-weight:600; cursor:pointer;">Keep Current</button>
+                    </div>
+                </div>
+
+                <!-- Scrollable Student Roster Container -->
+                <div id="promo-students-table-container" style="flex:1; overflow-y:auto; min-height:160px; max-height:280px; background:rgba(0,0,0,0.2); border-radius:12px; border:1px solid var(--glass-border); padding:8px;">
+                    <!-- Student rows dynamically rendered -->
+                </div>
+
+                <!-- Live Validation Warnings -->
+                <div id="promo-validation-alert" style="display:none; background:rgba(231,76,60,0.15); border:1px solid var(--accent-red); color:var(--accent-red); padding:8px 12px; border-radius:10px; font-size:0.75rem; margin-top:10px; flex-shrink:0;"></div>
+
+                <!-- Actions -->
+                <div style="display:flex; gap:10px; margin-top:14px; flex-shrink:0;">
+                    <button onclick="closeModal('modal-promotion-wizard')" style="flex:1; background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); color:var(--text); padding:12px; border-radius:12px; font-weight:600; cursor:pointer;">Cancel</button>
+                    <button id="btn-promo-execute" class="primary" onclick="confirmAndExecutePromotion()" style="flex:1; margin:0; padding:12px; font-weight:700; border-radius:12px; background:var(--accent-purple);">Execute Promotion</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL SINGLE STUDENT PROMOTION (Step 2) -->
+        <div id="modal-promote-single" class="modal">
+            <div class="glass" style="padding: 24px; position: relative; margin-top: 35px; margin-bottom: 40px; border-radius: 20px; max-width: 460px; width: 92%;">
+                <button onclick="closeModal('modal-promote-single')" style="position: absolute; top: 15px; right: 15px; background: none; border: none; color: var(--text); font-size: 1.8rem; cursor:pointer;">&times;</button>
+                <h2 style="color: var(--accent-teal); margin-top:0; font-size:1.25rem;">⬆ Promote Student</h2>
+                
+                <div style="background:rgba(0,0,0,0.25); border:1px solid var(--glass-border); border-radius:12px; padding:12px; margin-bottom:14px;">
+                    <div id="single-promo-name" style="font-size:1rem; font-weight:800; color:var(--text);">Student Name</div>
+                    <div id="single-promo-current-info" style="font-size:0.78rem; color:var(--text-dim); margin-top:3px;">Current: Class 9 | Roll: 1</div>
+                </div>
+
+                <div id="single-promo-cls12-view" style="display:none;">
+                    <div style="background:rgba(46,204,113,0.12); border:1px solid #2ecc71; color:#2ecc71; padding:12px; border-radius:12px; font-size:0.8rem; line-height:1.4; margin-bottom:14px;">
+                        🎓 <strong>Class 12 Course Completion:</strong><br>
+                        This student has completed Class 12. Proceeding will mark the student's status as <strong>Graduated / Passout</strong> and archive their final academic record.
+                    </div>
+                </div>
+
+                <div id="single-promo-standard-view">
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <label style="font-size:0.75rem; color:var(--text-dim); display:block; margin-bottom:3px;">Target Academic Year</label>
+                        <select id="single-promo-target-year" style="width:100%; padding:8px 10px; border-radius:10px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); color:var(--text); font-weight:700; font-size:0.85rem;"></select>
+                    </div>
+                    <div style="display:flex; gap:10px; margin-bottom:10px;">
+                        <div class="form-group" style="flex:1;">
+                            <label style="font-size:0.75rem; color:var(--text-dim); display:block; margin-bottom:3px;">Target Class</label>
+                            <select id="single-promo-target-class" style="width:100%; padding:8px 10px; border-radius:10px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); color:var(--text); font-weight:700; font-size:0.85rem;"></select>
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label style="font-size:0.75rem; color:var(--text-dim); display:block; margin-bottom:3px;">Section</label>
+                            <input type="text" id="single-promo-target-section" value="A" style="width:100%; padding:8px 10px; border-radius:10px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); color:var(--text); font-weight:700; font-size:0.85rem;">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label style="font-size:0.75rem; color:var(--text-dim); display:block; margin-bottom:3px;">Target Roll Number</label>
+                        <input type="number" id="single-promo-target-roll" min="1" oninput="validateSinglePromoRoll()" style="width:100%; padding:8px 10px; border-radius:10px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); color:var(--text); font-weight:700; font-size:0.85rem;">
+                        <div id="single-promo-roll-warn" style="font-size:0.72rem; color:var(--accent-red); margin-top:4px; display:none;"></div>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:10px;">
+                    <button onclick="closeModal('modal-promote-single')" style="flex:1; background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); color:var(--text); padding:12px; border-radius:12px; font-weight:600; cursor:pointer;">Cancel</button>
+                    <button id="btn-single-promo-confirm" class="primary" onclick="executeSinglePromotion()" style="flex:1; margin:0; padding:12px; font-weight:700; border-radius:12px; background:var(--accent-teal);">Confirm</button>
+                </div>
+            </div>
+        </div>
+
         <div id="toast"></div>
     </div>
 
+    <!-- On-Demand Dynamic Loaders (non-blocking for startup) -->
     <script>
         const APP_VERSION = "5.7";
 
@@ -2998,9 +3505,86 @@ Gameri Higher Secondary School, Gamiri`;
         let faces = JSON.parse(localStorage.getItem('itd3_f')) || [];
         let attendance = JSON.parse(localStorage.getItem('itd3_a')) || {};
         let marks = JSON.parse(localStorage.getItem('itd3_m')) || {};
+        let enrollments = JSON.parse(localStorage.getItem('itd3_enrollments')) || [];
+        let activeAcademicYear = localStorage.getItem('itd3_active_academic_year') || '2026-2027';
+        let academicYearsList = JSON.parse(localStorage.getItem('itd3_academic_years')) || [
+            { code: '2025-2026', title: 'Academic Session 2025-2026', status: 'CLOSED', is_active: 0 },
+            { code: '2026-2027', title: 'Academic Session 2026-2027', status: 'ACTIVE', is_active: 1 },
+            { code: '2027-2028', title: 'Academic Session 2027-2028', status: 'PLANNED', is_active: 0 }
+        ];
 
         window.students = students;
         window.attendance = attendance;
+        window.enrollments = enrollments;
+        window.activeAcademicYear = activeAcademicYear;
+
+        // FAST IN-MEMORY INDEXES & CACHES (Performance Forensic Fix)
+        let _studentMapCache = null;
+        let _groupMemberMapCache = null;
+        let _faceIdSetCache = null;
+        let _facesDirty = false;
+
+        function getStudentMap() {
+            if (!_studentMapCache || _studentMapCache.size !== students.length) {
+                _studentMapCache = new Map(students.map(s => [s.id, s]));
+            }
+            return _studentMapCache;
+        }
+
+        function getFaceIdSet() {
+            if (!_faceIdSetCache) {
+                _faceIdSetCache = new Set(faces.map(f => f.id));
+            }
+            return _faceIdSetCache;
+        }
+
+        function getGroupMemberMap() {
+            if (_groupMemberMapCache) return _groupMemberMapCache;
+            const map = new Map();
+            try {
+                const cgData = (typeof classGroups !== 'undefined' && classGroups) ? classGroups : JSON.parse(localStorage.getItem('itd3_cg') || '{}');
+                for (const cls in cgData) {
+                    const clsGroups = (cgData[cls] && Array.isArray(cgData[cls].g)) ? cgData[cls].g : [];
+                    for (const g of clsGroups) {
+                        if (g && Array.isArray(g.m) && g.n) {
+                            for (const mId of g.m) {
+                                map.set(String(mId), g.n);
+                            }
+                        }
+                    }
+                }
+            } catch (e) {}
+            _groupMemberMapCache = map;
+            return map;
+        }
+
+        function invalidateIndexCaches() {
+            _studentMapCache = null;
+            _groupMemberMapCache = null;
+            _faceIdSetCache = null;
+        }
+
+        let _calendarScriptPromise = null;
+        function loadAcademicCalendarScript() {
+            if (typeof evaluateAttendanceEligibility === 'function' || window.ASSEB_CALENDAR_MAP) {
+                return Promise.resolve();
+            }
+            if (_calendarScriptPromise) return _calendarScriptPromise;
+            _calendarScriptPromise = new Promise((resolve) => {
+                const s = document.createElement('script');
+                s.src = 'libs/asseb_calendar_2026_27.js';
+                s.onload = () => {
+                    console.log('[Calendar Engine] ASSEB 2026-27 Academic Calendar dataset loaded.');
+                    resolve();
+                };
+                s.onerror = (e) => {
+                    console.warn('[Calendar Engine] Could not load asseb_calendar_2026_27.js:', e);
+                    resolve();
+                };
+                document.head.appendChild(s);
+            });
+            return _calendarScriptPromise;
+        }
 
         function getStudentDisplayName(stu) {
             if (!stu) return 'Student';
@@ -3083,7 +3667,7 @@ Gameri Higher Secondary School, Gamiri`;
         // GLOBAL STATE
         let currentStream = null, isScanning = false, scanInterval = null, drawInterval = null, currentFacingMode = 'user', faceMatcher = null;
         let attendanceClass = 'All', selectedClass = 'All', selectedSection = 'All', selectedStatus = 'Active', fieldClass = '9', rawClass = '9', weeklyClass = '9';
-        let currentRawId = null, currentWeeklyId = null, selectedStudents = new Set(), registeringStudentId = null, isModelLoaded = false, itemsToShow = 100, searchTimeout = null, currentDetailId = null, currentAttendanceMode = 'face', googleUser = null;
+        let currentRawId = null, currentWeeklyId = null, selectedStudents = new Set(), registeringStudentId = null, isModelLoaded = false, itemsToShow = 40, searchTimeout = null, currentDetailId = null, currentAttendanceMode = 'face', googleUser = null;
         let navHistory = ['home'];
         let currentPortfolioId = null;
 
@@ -3232,11 +3816,71 @@ Gameri Higher Secondary School, Gamiri`;
             }
         }
 
-        function saveData() {
+        let _nativeSyncDebounce = null;
+        let _lastNativeSyncPayload = null;
+
+        function scheduleNativeReminderSync(immediate = false) {
+            if (!window.Android || !window.Android.syncNativeState) return;
+            const execute = () => {
+                try {
+                    const payload = JSON.stringify({
+                        t: timetable,
+                        r: reminderSettings,
+                        a: attendance,
+                        d: dayStatusOverrides,
+                        c: classNotHeld
+                    });
+                    if (payload === _lastNativeSyncPayload) return;
+                    _lastNativeSyncPayload = payload;
+                    window.Android.syncNativeState(
+                        JSON.stringify(timetable),
+                        JSON.stringify(reminderSettings),
+                        JSON.stringify(attendance),
+                        JSON.stringify(dayStatusOverrides),
+                        JSON.stringify(classNotHeld)
+                    );
+                } catch (e) {
+                    console.warn("syncNativeState error:", e);
+                }
+                _nativeSyncDebounce = null;
+            };
+            if (immediate) {
+                if (_nativeSyncDebounce) clearTimeout(_nativeSyncDebounce);
+                execute();
+            } else {
+                if (_nativeSyncDebounce) clearTimeout(_nativeSyncDebounce);
+                _nativeSyncDebounce = setTimeout(execute, 400);
+            }
+        }
+
+        function saveData(specificKeys = null) {
             try {
+                invalidateIndexCaches();
+                if (Array.isArray(specificKeys) && specificKeys.length > 0) {
+                    specificKeys.forEach(k => {
+                        if (k === 'itd3_alerts') localStorage.setItem('itd3_alerts', JSON.stringify(alerts));
+                        else if (k === 'itd3_notes') localStorage.setItem('itd3_notes', JSON.stringify(studyNotes));
+                        else if (k === 'itd3_m') localStorage.setItem('itd3_m', JSON.stringify(marks));
+                        else if (k === 'itd3_cg') localStorage.setItem('itd3_cg', JSON.stringify(classGroups));
+                        else if (k === 'itd3_a') {
+                            localStorage.setItem('itd3_a', JSON.stringify(attendance));
+                            scheduleNativeReminderSync();
+                        }
+                        else if (k === 'itd3_s') localStorage.setItem('itd3_s', JSON.stringify(students));
+                        else if (k === 'itd3_enrollments') localStorage.setItem('itd3_enrollments', JSON.stringify(enrollments));
+                        else if (k === 'itd3_timetable') {
+                            localStorage.setItem('itd3_timetable', JSON.stringify(timetable));
+                            scheduleNativeReminderSync();
+                        }
+                    });
+                    return;
+                }
+
                 const data = {
                     itd3_s: JSON.stringify(students),
-                    itd3_f: JSON.stringify(faces),
+                    itd3_enrollments: JSON.stringify(enrollments),
+                    itd3_active_academic_year: activeAcademicYear,
+                    itd3_academic_years: JSON.stringify(academicYearsList),
                     itd3_a: JSON.stringify(attendance),
                     itd3_m: JSON.stringify(marks),
                     itd3_wp: JSON.stringify(weeklyProgress),
@@ -3264,20 +3908,17 @@ Gameri Higher Secondary School, Gamiri`;
                     itd3_audit: JSON.stringify(auditTrail.slice(0, 300))
                 };
 
+                if (_facesDirty) {
+                    data.itd3_f = JSON.stringify(faces);
+                    _facesDirty = false;
+                }
+
                 for (let key in data) {
                     if (data[key] !== null) localStorage.setItem(key, data[key]);
                 }
 
-                // Sync native background attendance reminder alarms and state
-                if (window.Android && window.Android.syncNativeState) {
-                    window.Android.syncNativeState(
-                        JSON.stringify(timetable),
-                        JSON.stringify(reminderSettings),
-                        JSON.stringify(attendance),
-                        JSON.stringify(dayStatusOverrides),
-                        JSON.stringify(classNotHeld)
-                    );
-                }
+                // Batch native background attendance reminder alarms (debounced to avoid IPC lockups)
+                scheduleNativeReminderSync();
 
                 // Google Drive Backup (Auto Sync if logged in)
                 if (googleUser && window.Android && window.Android.syncToDrive) {
@@ -3286,30 +3927,75 @@ Gameri Higher Secondary School, Gamiri`;
                     window.Android.syncToDrive(JSON.stringify(syncData));
                 }
 
-                // Production Cloud Sync via SyncManager (Offline-First)
-                if (window.SyncManager) {
-                    window.SyncManager.enqueue('Students', 'ALL_STUDENTS', 'UPSERT', students);
-                    window.SyncManager.enqueue('Attendance', 'ALL_ATTENDANCE', 'UPSERT', attendance);
-                    window.SyncManager.enqueue('Marks', 'ALL_MARKS', 'UPSERT', marks);
-                    window.SyncManager.enqueue('TeacherNotes', 'ALL_NOTES', 'UPSERT', studyNotes);
-                    window.SyncManager.enqueue('Timetable', 'ALL_TIMETABLE', 'UPSERT', timetable);
-                    if (weeklyProgress.length > 0 || rawMaterials.length > 0 || gleEntries.length > 0) {
-                        const allActs = [];
-                        weeklyProgress.forEach(w => allActs.push({ title: w.topic || 'Weekly Progress', category: 'WEEKLY_PROGRESS', class: w.class || '9', description: w.desc || '', date: w.date || '' }));
-                        rawMaterials.forEach(r => allActs.push({ title: r.item || 'Raw Material', category: 'RAW_MATERIALS', class: r.class || '9', description: `Qty: ${r.qty || 0}`, date: r.date || '' }));
-                        gleEntries.forEach(g => allActs.push({ title: g.topic || 'Guest Lecture', category: 'GUEST_LECTURE', class: g.class || '9', description: g.speaker || '', date: g.date || '' }));
-                        window.SyncManager.enqueue('Activities', 'ALL_ACTIVITIES', 'UPSERT', allActs);
-                    }
-                    if (alerts.length > 0) {
-                        window.SyncManager.enqueue('Notices', 'ALL_NOTICES', 'UPSERT', alerts.map(a => ({ title: `Absence Alert: ${a.studentName || ''}`, body: `Consecutive absences: ${a.streak || 0}`, priority: 'HIGH', visibility: 'PARENTS' })));
-                    }
-                    if (schoolDetails) window.SyncManager.enqueue('SchoolContacts', 'SCHOOL_CONTACTS', 'UPSERT', schoolDetails);
-                }
+                // Targeted Cloud Sync:
+                // Global saveData() stores to localStorage and native background bridges.
+                // Cloud synchronization is fine-grained and queued only by specific mutation actions
+                // (queueAttendanceSync, queueStudentsSync, queueMarksSync, etc.) to prevent D1 write amplification.
             } catch (e) {
                 console.error("Storage Error:", e);
                 showToast("Memory Full!", "error");
             }
         }
+
+        // TARGETED CLOUD SYNC HELPERS (Prevents D1 Historical Write Amplification)
+        function queueAttendanceSync(dateStr) {
+            if (!window.SyncManager || !dateStr) return;
+            const singleDateAtt = {};
+            singleDateAtt[dateStr] = attendance[dateStr] || [];
+            window.SyncManager.enqueue('Attendance', `ATT_${dateStr}`, 'UPSERT', singleDateAtt);
+        }
+
+        function queueStudentsSync() {
+            if (!window.SyncManager) return;
+            window.SyncManager.enqueue('Students', 'ALL_STUDENTS', 'UPSERT', students);
+        }
+
+        function queueMarksSync() {
+            if (!window.SyncManager) return;
+            window.SyncManager.enqueue('Marks', 'ALL_MARKS', 'UPSERT', marks);
+        }
+
+        function queueNotesSync() {
+            if (!window.SyncManager) return;
+            window.SyncManager.enqueue('TeacherNotes', 'ALL_NOTES', 'UPSERT', studyNotes);
+        }
+
+        function queueTimetableSync() {
+            if (!window.SyncManager) return;
+            window.SyncManager.enqueue('Timetable', 'ALL_TIMETABLE', 'UPSERT', timetable);
+        }
+
+        function queueActivitiesSync() {
+            if (!window.SyncManager) return;
+            const allActs = [];
+            if (Array.isArray(weeklyProgress)) {
+                weeklyProgress.forEach(w => allActs.push({ title: w.topic || 'Weekly Progress', category: 'WEEKLY_PROGRESS', class: w.class || '9', description: w.desc || '', date: w.date || '' }));
+            }
+            if (Array.isArray(rawMaterials)) {
+                rawMaterials.forEach(r => allActs.push({ title: r.item || 'Raw Material', category: 'RAW_MATERIALS', class: r.class || '9', description: `Qty: ${r.qty || 0}`, date: r.date || '' }));
+            }
+            if (Array.isArray(gleEntries)) {
+                gleEntries.forEach(g => allActs.push({ title: g.topic || 'Guest Lecture', category: 'GUEST_LECTURE', class: g.class || '9', description: g.speaker || '', date: g.date || '' }));
+            }
+            if (allActs.length > 0) {
+                window.SyncManager.enqueue('Activities', 'ALL_ACTIVITIES', 'UPSERT', allActs);
+            }
+        }
+
+        function queueNoticesSync() {
+            if (!window.SyncManager) return;
+            if (Array.isArray(alerts) && alerts.length > 0) {
+                window.SyncManager.enqueue('Notices', 'ALL_NOTICES', 'UPSERT', alerts.map(a => ({ title: `Absence Alert: ${a.studentName || ''}`, body: `Consecutive absences: ${a.streak || 0}`, priority: 'HIGH', visibility: 'PARENTS' })));
+            }
+        }
+
+        window.queueAttendanceSync = queueAttendanceSync;
+        window.queueStudentsSync = queueStudentsSync;
+        window.queueMarksSync = queueMarksSync;
+        window.queueNotesSync = queueNotesSync;
+        window.queueTimetableSync = queueTimetableSync;
+        window.queueActivitiesSync = queueActivitiesSync;
+        window.queueNoticesSync = queueNoticesSync;
 
         // SCHOOL CLOUD & GOOGLE SYNC BRIDGE CALLBACKS
         window.onSchoolCloudConfigLoaded = (jsonStr) => {
@@ -3712,15 +4398,26 @@ Gameri Higher Secondary School, Gamiri`;
             const role = user.role;
             const name = user.name || 'Staff Member';
 
+            const academicTabChip = document.getElementById('tab-chip-academic');
+            const academicContent = document.getElementById('set-content-academic');
+            const bulkPromoteBtn = document.getElementById('bulk-promote-btn');
+            const singlePromoteBtn = document.getElementById('btn-single-promote');
+
             if (role === 'ADMIN') {
                 if (welcomeHeader) welcomeHeader.innerText = `Welcome ${name}`;
                 if (descHeader) descHeader.innerHTML = `System Administrator<br>Gameri Higher Secondary School`;
                 if (staffTabChip) staffTabChip.style.display = 'inline-block';
+                if (academicTabChip) academicTabChip.style.display = 'inline-block';
+                if (bulkPromoteBtn) { bulkPromoteBtn.disabled = false; bulkPromoteBtn.style.opacity = '1'; }
+                if (singlePromoteBtn) { singlePromoteBtn.disabled = false; singlePromoteBtn.style.opacity = '1'; }
                 populateClassDropdowns(['9', '10', '11', '12']);
             } else if (role === 'PRINCIPAL') {
                 if (welcomeHeader) welcomeHeader.innerText = `Welcome Principal`;
                 if (descHeader) descHeader.innerHTML = `${name}<br>Gameri Higher Secondary School`;
                 if (staffTabChip) staffTabChip.style.display = 'inline-block';
+                if (academicTabChip) academicTabChip.style.display = 'inline-block';
+                if (bulkPromoteBtn) { bulkPromoteBtn.disabled = false; bulkPromoteBtn.style.opacity = '1'; }
+                if (singlePromoteBtn) { singlePromoteBtn.disabled = false; singlePromoteBtn.style.opacity = '1'; }
                 populateClassDropdowns(['9', '10', '11', '12']);
             } else if (role === 'TEACHER') {
                 const classesStr = (user.assignedClasses || []).join(', ');
@@ -3728,7 +4425,10 @@ Gameri Higher Secondary School, Gamiri`;
                 if (welcomeHeader) welcomeHeader.innerText = `Welcome ${name}`;
                 if (descHeader) descHeader.innerHTML = `Vocational Teacher (${subjectsStr || 'IT/ITeS'})<br>Class ${classesStr || '9, 10'}`;
                 if (staffTabChip) staffTabChip.style.display = 'none';
-                if (staffContent && staffContent.style.display === 'block') {
+                if (academicTabChip) academicTabChip.style.display = 'none';
+                if (bulkPromoteBtn) { bulkPromoteBtn.disabled = true; bulkPromoteBtn.style.opacity = '0.5'; bulkPromoteBtn.title = 'Promotion restricted to Principal/Admin'; }
+                if (singlePromoteBtn) { singlePromoteBtn.disabled = true; singlePromoteBtn.style.opacity = '0.5'; singlePromoteBtn.title = 'Promotion restricted to Principal/Admin'; }
+                if ((staffContent && staffContent.style.display === 'block') || (academicContent && academicContent.style.display === 'block')) {
                     switchSettingsTab('general', document.querySelector('#page-settings .chip-container .chip'));
                 }
                 populateClassDropdowns(user.assignedClasses && user.assignedClasses.length > 0 ? user.assignedClasses : ['9', '10']);
@@ -4549,6 +5249,9 @@ Gameri Higher Secondary School, Gamiri`;
             if (pageId === 'guest') setupGuestSlots();
             if (pageId === 'field') renderFieldStudentList();
             if (pageId === 'timetable') renderTimetablePage();
+            if (pageId === 'register') renderRegister();
+            if (pageId === 'calendar') renderCalendarView();
+            if (pageId === 'notes') renderNotesUnits();
         }
 
         function handleProfileUpload(e) {
@@ -4726,7 +5429,7 @@ Gameri Higher Secondary School, Gamiri`;
             const navs = document.querySelectorAll('.bottom-nav .nav-item');
 
             if(page === 'home') { navs[0].classList.add('active'); renderStats(); }
-            if(page === 'students') { navs[1].classList.add('active'); selectedStudents.clear(); itemsToShow = 100; setupFilterChips(); renderStudentList(); }
+            if(page === 'students') { navs[1].classList.add('active'); selectedStudents.clear(); itemsToShow = 40; setupFilterChips(); renderStudentList(); }
             if(page === 'groups') { navs[2].classList.add('active'); renderGroupsPage(); }
             if(page === 'records') { navs[3].classList.add('active'); renderRecords(); populateProgressStudentSelect(); }
             if(page === 'settings') { navs[4].classList.add('active'); updateSettingsUI(); }
@@ -4805,20 +5508,20 @@ Gameri Higher Secondary School, Gamiri`;
             }
         }
 
-        function filterClass(cls, el) { selectedClass = cls; document.querySelectorAll('#class-chips .chip').forEach(c => c.classList.remove('active')); el.classList.add('active'); itemsToShow = 100; setupFilterChips(); renderStudentList(); }
-        function filterSection(sec, el) { selectedSection = sec; document.querySelectorAll('#section-chips .chip').forEach(c => c.classList.remove('active')); el.classList.add('active'); itemsToShow = 100; renderStudentList(); }
+        function filterClass(cls, el) { selectedClass = cls; document.querySelectorAll('#class-chips .chip').forEach(c => c.classList.remove('active')); el.classList.add('active'); itemsToShow = 40; setupFilterChips(); renderStudentList(); }
+        function filterSection(sec, el) { selectedSection = sec; document.querySelectorAll('#section-chips .chip').forEach(c => c.classList.remove('active')); el.classList.add('active'); itemsToShow = 40; renderStudentList(); }
         function filterStatus(status, el) {
             selectedStatus = status;
             document.querySelectorAll('#status-chips .chip').forEach(c => c.classList.remove('active'));
             el.classList.add('active');
-            itemsToShow = 100;
+            itemsToShow = 40;
             renderStudentList();
         }
 
         function debouncedRender() {
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
-                itemsToShow = 100;
+                itemsToShow = 40;
                 renderStudentList();
             }, 300);
         }
@@ -4831,14 +5534,8 @@ Gameri Higher Secondary School, Gamiri`;
             }
             try {
                 const sid = String(s.id || s.studentId || '');
-                const sCls = String(s.class || '9');
-                const cgData = (typeof classGroups !== 'undefined' && classGroups) ? classGroups : JSON.parse(localStorage.getItem('itd3_cg') || '{}');
-                const clsGroups = (cgData[sCls] && Array.isArray(cgData[sCls].g)) ? cgData[sCls].g : [];
-                for (const g of clsGroups) {
-                    if (g && Array.isArray(g.m) && g.m.map(String).includes(sid)) {
-                        return g.n || 'Group Not Assigned';
-                    }
-                }
+                const mapped = getGroupMemberMap().get(sid);
+                if (mapped) return mapped;
             } catch (e) {}
             return 'Group Not Assigned';
         }
@@ -4865,8 +5562,9 @@ Gameri Higher Secondary School, Gamiri`;
             if(filtered.length === 0) { list.innerHTML = '<div class="empty-state"><div class="emoji">🔍</div><p>No students found</p></div>'; updateBulkBar(); return; }
 
             const fragment = document.createDocumentFragment();
+            const faceIdSet = getFaceIdSet();
             filtered.slice(0, itemsToShow).forEach(s => {
-                const hasFace = faces.some(f => f.id === s.id);
+                const hasFace = faceIdSet.has(s.id);
                 const isSelected = selectedStudents.has(s.id);
                 const assignedGrp = getStudentAssignedGroup(s);
                 const row = document.createElement('div');
@@ -4903,7 +5601,7 @@ Gameri Higher Secondary School, Gamiri`;
             list.innerHTML = ''; list.appendChild(fragment);
             if (filtered.length > itemsToShow) {
                 const btn = document.createElement('button'); btn.className = 'primary'; btn.innerText = 'Load More';
-                btn.onclick = () => { itemsToShow += 100; renderStudentList(); }; list.appendChild(btn);
+                btn.onclick = () => { itemsToShow += 40; renderStudentList(); }; list.appendChild(btn);
             }
             updateBulkBar();
         }
@@ -4944,17 +5642,7 @@ Gameri Higher Secondary School, Gamiri`;
         }
 
         function bulkPromote() {
-            let count = 0;
-            selectedStudents.forEach(id => {
-                const s = students.find(x => x.id === id);
-                if(s && parseInt(s.class) < 12) {
-                    const oldCls = s.class;
-                    s.class = (parseInt(s.class)+1).toString();
-                    logAudit('Student Promoted', 'Academic Class', `Class ${oldCls}`, `Class ${s.class}`, s.name);
-                    count++;
-                }
-            });
-            selectedStudents.clear(); saveData(); renderStudentList(); showToast(`Promoted ${count} student(s)!`);
+            openPromotionWizardModal();
         }
 
         function bulkDrop() {
@@ -4968,7 +5656,7 @@ Gameri Higher Secondary School, Gamiri`;
                     count++;
                 }
             });
-            selectedStudents.clear(); saveData(); renderStudentList(); showToast(`Dropped ${count} student(s)!`);
+            selectedStudents.clear(); saveData(); queueStudentsSync(); renderStudentList(); showToast(`Dropped ${count} student(s)!`);
         }
 
         let currentGroupId = null, groupMembers = new Set();
@@ -5309,24 +5997,14 @@ Gameri Higher Secondary School, Gamiri`;
                 }
                 const newInfo = `Class ${s.class}, Roll ${s.roll || 'N/A'}`;
                 logAudit('Student Profile Updated', 'Student Profile', oldInfo, newInfo, s.name);
-                saveData(); renderStudentList(); showToast("Updated!");
+                saveData(); queueStudentsSync(); renderStudentList(); showToast("Updated!");
                 document.getElementById('edit-icon-text').innerText = '✏️';
                 inputs.forEach(i => { i.readOnly = true; i.style.borderBottom = 'none'; });
             }
         }
 
         function promoteSingle() {
-            const s = students.find(x => x.id === currentDetailId);
-            if (!s) { showToast("Student not found", "error"); return; }
-            if (parseInt(s.class) < 12) {
-                const oldCls = s.class;
-                s.class = (parseInt(s.class) + 1).toString();
-                logAudit('Student Promoted', 'Academic Class', `Class ${oldCls}`, `Class ${s.class}`, s.name);
-                saveData(); renderStudentList(); viewDetail(currentDetailId);
-                showToast("Promoted to Class " + s.class + "!");
-            } else {
-                showToast("Already in highest class", "info");
-            }
+            openPromoteSingleModal();
         }
 
         function dropSingle() {
@@ -5336,7 +6014,7 @@ Gameri Higher Secondary School, Gamiri`;
                 const oldCls = s.class;
                 s.class = (parseInt(s.class) - 1).toString();
                 logAudit('Student Dropped', 'Academic Class', `Class ${oldCls}`, `Class ${s.class}`, s.name);
-                saveData(); renderStudentList(); viewDetail(currentDetailId);
+                saveData(); queueStudentsSync(); renderStudentList(); viewDetail(currentDetailId);
                 showToast("Dropped to Class " + s.class + "!");
             } else {
                 showToast("Already in lowest class", "info");
@@ -5370,6 +6048,7 @@ Gameri Higher Secondary School, Gamiri`;
             });
             logAudit('Student Registered', 'Student Profile', null, `Class ${regCls}, Roll ${regRoll || 'N/A'}`, name);
             saveData();
+            queueStudentsSync();
             playBeep(600, 200); // 1 time beep for enrollment complete
             clearRegistrationForm();
             showToast("Registered!");
@@ -5399,6 +6078,7 @@ Gameri Higher Secondary School, Gamiri`;
                 const sName = s ? s.name : id;
                 students = students.filter(s => s.id !== id);
                 faces = faces.filter(f => f.id !== id);
+                _facesDirty = true;
                 if(marks[id]) delete marks[id];
                 if(fieldVisits[id]) delete fieldVisits[id];
                 // Clean attendance
@@ -5407,6 +6087,7 @@ Gameri Higher Secondary School, Gamiri`;
                 }
                 logAudit('Student Deleted', 'Student Profile', sName, null, sName);
                 saveData();
+                queueStudentsSync();
                 renderStudentList();
                 renderStats();
             }
@@ -5609,6 +6290,7 @@ Gameri Higher Secondary School, Gamiri`;
                 const studentName = s ? s.name : "Student";
                 logAudit('Attendance Marked (Face Scanner)', 'Attendance', 'Absent/Pending', 'Present', `${studentName} (${date})`);
                 saveData(); 
+                queueAttendanceSync(date);
                 renderStats(); 
                 playBeep(800, 150);
                 if (s && s.class) onAttendanceUpdatedForClass(s.class);
@@ -5832,6 +6514,7 @@ Gameri Higher Secondary School, Gamiri`;
             logAudit('Attendance Modified (Manual)', 'Attendance', isPresentNow ? 'Absent' : 'Present', isPresentNow ? 'Present' : 'Absent', s ? `${s.name} (${selectedDate})` : sid);
 
             saveData();
+            queueAttendanceSync(selectedDate);
             setTimeout(renderStats, 0);
             if (isPresentNow) onAttendanceUpdatedForClass(attendanceClass);
         }
@@ -5855,6 +6538,7 @@ Gameri Higher Secondary School, Gamiri`;
             if (present) playBeep(800, 50);
             logAudit(present ? 'Bulk Attendance Present' : 'Bulk Attendance Absent', 'Attendance', null, present ? 'All Present' : 'All Absent', `Class ${cls} (${selectedDate})`);
             saveData();
+            queueAttendanceSync(selectedDate);
             renderStats();
             renderManualAttendanceList(cls, currentManualTab);
             if (present) onAttendanceUpdatedForClass(cls);
@@ -5885,6 +6569,7 @@ Gameri Higher Secondary School, Gamiri`;
             }
 
             saveData();
+            queueAttendanceSync(selectedDate);
             renderStats();
             renderManualAttendanceList(cls, currentManualTab);
             showToast("Class status updated!");
@@ -5898,6 +6583,7 @@ Gameri Higher Secondary School, Gamiri`;
                 delete classNotHeld[selectedDate][cls];
                 if (Object.keys(classNotHeld[selectedDate]).length === 0) delete classNotHeld[selectedDate];
                 saveData();
+                queueAttendanceSync(selectedDate);
                 renderManualAttendanceList(cls, currentManualTab);
                 showToast("Status cleared");
             }
@@ -5990,6 +6676,7 @@ Gameri Higher Secondary School, Gamiri`;
                         descriptors: enrollmentSamples,
                         enrolledAt: new Date().toISOString()
                     });
+                    _facesDirty = true;
                     saveData();
                     playBeep(1000, 300);
                     showToast("Face Registration Complete! (3/3 Samples Captured)");
@@ -6097,7 +6784,7 @@ Gameri Higher Secondary School, Gamiri`;
          * Returns 'N/A' if conducted == 0 (zero 100% fallbacks, zero sparse pCount traps).
          */
         function calculateStudentAttendance(studentId, options = {}) {
-            const s = students.find(x => x.id === studentId);
+            const s = getStudentMap().get(studentId);
             if (!s) return { attended: 0, conducted: 0, percentage: 'N/A', percentNum: null };
 
             const cls = options.class || s.class;
@@ -6235,6 +6922,10 @@ Gameri Higher Secondary School, Gamiri`;
         }
 
         function renderRegister() {
+            if (typeof evaluateAttendanceEligibility !== 'function') {
+                loadAcademicCalendarScript().then(() => renderRegister());
+                return;
+            }
             const curCls = document.getElementById('reg-class-select').value;
             refreshClassSectionDropdown('reg-section-select', curCls, true);
             const cls = document.getElementById('reg-class-select')?.value || '9';
@@ -6282,6 +6973,47 @@ Gameri Higher Secondary School, Gamiri`;
                 return;
             }
 
+            // High Performance Precomputation (Reduces 1,550 cell calls to single pass D=31)
+            const dayMeta = [];
+            let totalConductedInMonth = 0;
+            const secParam = sec !== 'All' ? sec : null;
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = dayStatuses[d - 1].dateStr;
+                const stat = dayStatuses[d - 1].stat;
+
+                if (!stat.isWorking) {
+                    let cellClass = 'reg-cell-off';
+                    let displayCode = '—';
+                    if (stat.status === 'HOLIDAY') {
+                        cellClass = 'reg-cell-h';
+                        displayCode = 'H';
+                    } else if (stat.status === 'CLASS_NOT_HELD') {
+                        cellClass = 'reg-cell-cnh';
+                        displayCode = 'CNH';
+                    }
+                    dayMeta.push({
+                        isConducted: false,
+                        cellHtml: `<td class="${cellClass}" title="${dateStr}: ${stat.reason}">${displayCode}</td>`
+                    });
+                } else {
+                    const wasRecorded = isClassAttendanceRecorded(dateStr, cls, secParam);
+                    if (!wasRecorded) {
+                        dayMeta.push({
+                            isConducted: false,
+                            cellHtml: `<td class="reg-cell-pending" title="${dateStr}: Attendance Pending">—</td>`
+                        });
+                    } else {
+                        totalConductedInMonth++;
+                        dayMeta.push({
+                            isConducted: true,
+                            presentSet: new Set(Array.isArray(attendance[dateStr]) ? attendance[dateStr] : []),
+                            dateStr: dateStr
+                        });
+                    }
+                }
+            }
+
             let theadHtml = `
                 <thead>
                     <tr>
@@ -6307,48 +7039,44 @@ Gameri Higher Secondary School, Gamiri`;
             let totalPresentSum = 0;
             let studentRowsHtml = '';
 
+            // Section-specific conducted dates cache for exact authoritative formula compliance
+            const secConductedCache = new Map();
+            const monthConductedDatesAll = Object.keys(attendance).filter(d => {
+                const parts = d.split('-');
+                return Number(parts[0]) === currentRegisterYear && Number(parts[1]) === currentRegisterMonth;
+            });
+            function getStudentMonthConducted(studentSec) {
+                const key = sec !== 'All' ? sec : (studentSec || 'ALL_SEC');
+                if (secConductedCache.has(key)) return secConductedCache.get(key);
+                const effectiveSec = sec !== 'All' ? sec : (studentSec || null);
+                const count = monthConductedDatesAll.filter(d => isClassAttendanceRecorded(d, cls, effectiveSec)).length;
+                secConductedCache.set(key, count);
+                return count;
+            }
+
             filteredStudents.forEach(s => {
                 let pCount = 0;
                 let aCount = 0;
                 let dayCellsHtml = '';
 
                 for (let d = 1; d <= daysInMonth; d++) {
-                    const dateStr = dayStatuses[d - 1].dateStr;
-                    const res = getStudentAttendanceState(dateStr, cls, s.id);
-                    let cellClass = 'reg-cell-off';
-                    let displayCode = res.code;
-
-                    if (res.status === 'PRESENT') {
-                        cellClass = 'reg-cell-p';
-                        pCount++;
-                    } else if (res.status === 'ABSENT') {
-                        cellClass = 'reg-cell-a';
-                        aCount++;
-                    } else if (res.status === 'HOLIDAY') {
-                        cellClass = 'reg-cell-h';
-                        displayCode = 'H';
-                    } else if (res.status === 'CLASS_NOT_HELD') {
-                        cellClass = 'reg-cell-cnh';
-                        displayCode = 'CNH';
-                    } else if (res.status === 'WEEKEND') {
-                        cellClass = 'reg-cell-off';
-                        displayCode = '—';
-                    } else if (res.status === 'ATTENDANCE_PENDING') {
-                        cellClass = 'reg-cell-pending';
-                        displayCode = '—';
+                    const meta = dayMeta[d - 1];
+                    if (!meta.isConducted) {
+                        dayCellsHtml += meta.cellHtml;
+                    } else {
+                        if (meta.presentSet.has(s.id)) {
+                            dayCellsHtml += `<td class="reg-cell-p" title="${meta.dateStr}: Present">P</td>`;
+                            pCount++;
+                        } else {
+                            dayCellsHtml += `<td class="reg-cell-a" title="${meta.dateStr}: Absent">A</td>`;
+                            aCount++;
+                        }
                     }
-
-                    dayCellsHtml += `<td class="${cellClass}" title="${dateStr}: ${res.label}">${displayCode}</td>`;
                 }
 
                 totalPresentSum += pCount;
-                const attRes = calculateStudentAttendance(s.id, {
-                    class: cls,
-                    section: sec !== 'All' ? sec : undefined,
-                    year: currentRegisterYear,
-                    month: currentRegisterMonth
-                });
-                const pctStr = attRes.percentage;
+                const studentConducted = getStudentMonthConducted(s.section && s.section !== 'All' ? s.section : null);
+                const pctStr = studentConducted === 0 ? 'N/A' : ((pCount / studentConducted) * 100).toFixed(1) + '%';
 
                 studentRowsHtml += `
                     <tr onclick="viewStudentAttendanceHistory('${s.id}', ${currentRegisterYear}, ${currentRegisterMonth})" style="cursor:pointer;">
@@ -6362,12 +7090,7 @@ Gameri Higher Secondary School, Gamiri`;
                 `;
             });
 
-            const monthConductedDates = Object.keys(attendance).filter(d => {
-                const parts = d.split('-');
-                if (Number(parts[0]) !== currentRegisterYear || Number(parts[1]) !== currentRegisterMonth) return false;
-                return isClassAttendanceRecorded(d, cls, sec !== 'All' ? sec : null);
-            });
-            const totalPossiblePresent = filteredStudents.length * monthConductedDates.length;
+            const totalPossiblePresent = filteredStudents.length * totalConductedInMonth;
             const avgPctStr = totalPossiblePresent > 0 ? ((totalPresentSum / totalPossiblePresent) * 100).toFixed(1) + '%' : 'N/A';
             const avgPctEl = document.getElementById('reg-class-avg-pct');
             if (avgPctEl) avgPctEl.innerText = avgPctStr;
@@ -6601,6 +7324,10 @@ Gameri Higher Secondary School, Gamiri`;
         }
 
         function renderCalendarView() {
+            if (typeof evaluateAttendanceEligibility !== 'function') {
+                loadAcademicCalendarScript().then(() => renderCalendarView());
+                return;
+            }
             const cls = document.getElementById('cal-class-select')?.value || '9';
             const monthDisplay = document.getElementById('cal-month-display');
             const gridContainer = document.getElementById('calendar-grid-view');
@@ -6631,6 +7358,7 @@ Gameri Higher Secondary School, Gamiri`;
                 calCellsHtml += `<div class="cal-date-cell other-month"></div>`;
             }
 
+            const stuMap = getStudentMap();
             for (let d = 1; d <= daysInMonth; d++) {
                 const dateStr = `${currentCalendarYear}-${String(currentCalendarMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                 const dayStat = getDayStatus(dateStr, cls);
@@ -6653,7 +7381,7 @@ Gameri Higher Secondary School, Gamiri`;
                     const wasRecorded = isClassAttendanceRecorded(dateStr, cls);
                     if (wasRecorded) {
                         const pCount = (attendance[dateStr] || []).filter(id => {
-                            const s = students.find(x => x.id === id);
+                            const s = stuMap.get(id);
                             return s && s.class == cls;
                         }).length;
                         badgeHtml = `<span class="cal-status-badge cal-badge-complete">🟢 ${pCount} P</span>`;
@@ -7163,8 +7891,9 @@ Gameri Higher Secondary School, Gamiri`;
          */
         function isClassAttendanceRecorded(dateStr, classNum, section = null) {
             if (!attendance[dateStr] || !Array.isArray(attendance[dateStr]) || attendance[dateStr].length === 0) return false;
+            const stuMap = getStudentMap();
             return attendance[dateStr].some(id => {
-                const s = students.find(x => x.id === id);
+                const s = stuMap.get(id);
                 if (!s) return false;
                 if (classNum && classNum !== 'All' && s.class != classNum) return false;
                 if (section && section !== 'All' && (s.section || 'A').toUpperCase() !== section.toUpperCase()) return false;
@@ -7994,7 +8723,15 @@ Gameri Higher Secondary School, Gamiri`;
             const assignedGroup = getStudentAssignedGroup(s);
             document.getElementById('portfolio-view-avatar').innerText = s.name ? s.name[0] : '?';
             document.getElementById('portfolio-view-name').innerText = (s.roll ? s.roll + '. ' : '') + s.name;
-            document.getElementById('portfolio-view-meta').innerText = `Class ${s.class} | Section ${s.section || 'A'} | Roll: ${s.roll || 'N/A'} | Group: ${assignedGroup}`;
+            const metaEl = document.getElementById('portfolio-view-meta');
+            if (metaEl) {
+                metaEl.innerHTML = `
+                    <span style="background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); padding:3px 9px; border-radius:8px; font-size:0.75rem; font-weight:600;">Class ${s.class}</span>
+                    <span style="background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); padding:3px 9px; border-radius:8px; font-size:0.75rem; font-weight:600;">Sec ${s.section || 'A'}</span>
+                    <span style="background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); padding:3px 9px; border-radius:8px; font-size:0.75rem; font-weight:600;">Roll: ${s.roll || 'N/A'}</span>
+                    ${assignedGroup && assignedGroup !== 'Group Not Assigned' ? `<span style="background:rgba(0,242,254,0.08); border:1px solid rgba(0,242,254,0.25); color:var(--accent-teal); padding:3px 9px; border-radius:8px; font-size:0.75rem; font-weight:600;">Group: ${assignedGroup}</span>` : ''}
+                `;
+            }
             const statusBadge = document.getElementById('portfolio-view-status-badge');
             if (statusBadge) {
                 const st = s.status || 'Active';
@@ -8510,6 +9247,7 @@ Gameri Higher Secondary School, Gamiri`;
                     }
                 }
                 saveData();
+                queueMarksSync();
                 editingCards.delete(sid);
                 const student = students.find(s => s.id === sid);
                 showToast(`Marks Saved for ${student ? student.name : 'Student'}!`);
@@ -8915,7 +9653,7 @@ Gameri Higher Secondary School, Gamiri`;
             const data = {}; ['books','trade','school','session','receiveDate','distDate'].forEach(f => data[f] = document.getElementById('raw-'+f).value);
             if(currentRawId) Object.assign(rawMaterials.find(r => r.id === currentRawId), data);
             else rawMaterials.push({ id: 'RM'+Date.now(), class: rawClass, ...data });
-            saveData(); closeModal('modal-raw'); renderRawMaterialsList(); showToast("Saved!");
+            saveData(); queueActivitiesSync(); closeModal('modal-raw'); renderRawMaterialsList(); showToast("Saved!");
         }
 
         function renderRawMaterialsList() {
@@ -8928,7 +9666,7 @@ Gameri Higher Secondary School, Gamiri`;
                     </div>
                 </div>`).join('') || '<div class="empty-state">No materials found</div>';
         }
-        function deleteRaw(id) { if(confirm("Delete?")) { rawMaterials = rawMaterials.filter(r => r.id !== id); saveData(); renderRawMaterialsList(); } }
+        function deleteRaw(id) { if(confirm("Delete?")) { rawMaterials = rawMaterials.filter(r => r.id !== id); saveData(); queueActivitiesSync(); renderRawMaterialsList(); } }
 
         function exportRawMaterials(format) {
             const filtered = rawMaterials.filter(r => r.class === rawClass);
@@ -8967,7 +9705,7 @@ Gameri Higher Secondary School, Gamiri`;
             if(!data.desc || !data.amount) return showToast("Description and Amount required", "error");
             if(currentGLEId) Object.assign(gleEntries.find(g => g.id === currentGLEId), data);
             else gleEntries.push({ id: 'GLE'+Date.now(), ...data });
-            saveData(); closeModal('modal-gle'); renderGLEList(); showToast("Saved!");
+            saveData(); queueActivitiesSync(); closeModal('modal-gle'); renderGLEList(); showToast("Saved!");
         }
 
         function renderGLEList() {
@@ -9016,7 +9754,7 @@ Gameri Higher Secondary School, Gamiri`;
             list.innerHTML = summary + html;
         }
 
-        function deleteGLE(id) { if(confirm("Delete this entry?")) { gleEntries = gleEntries.filter(g => g.id !== id); saveData(); renderGLEList(); } }
+        function deleteGLE(id) { if(confirm("Delete this entry?")) { gleEntries = gleEntries.filter(g => g.id !== id); saveData(); queueActivitiesSync(); renderGLEList(); } }
 
         function exportGLE(format) {
             if(gleEntries.length === 0) return showToast("No data to export", "error");
@@ -9054,7 +9792,7 @@ Gameri Higher Secondary School, Gamiri`;
             const data = {}; ['date','students','type','chapter','topic','teacher'].forEach(f => data[f] = document.getElementById('wp-'+f).value);
             if(currentWeeklyId) Object.assign(weeklyProgress.find(w => w.id === currentWeeklyId), data);
             else weeklyProgress.push({ id: 'WP'+Date.now(), class: weeklyClass, ...data });
-            saveData(); closeModal('modal-weekly'); renderWeeklyProgressList(); showToast("Saved!");
+            saveData(); queueActivitiesSync(); closeModal('modal-weekly'); renderWeeklyProgressList(); showToast("Saved!");
         }
 
         function renderWeeklyProgressList() {
@@ -9075,7 +9813,7 @@ Gameri Higher Secondary School, Gamiri`;
                     </div>
                 </div>`).join('') || '<div class="empty-state">No progress found</div>';
         }
-        function deleteWeekly(id) { if(confirm("Delete?")) { weeklyProgress = weeklyProgress.filter(w => w.id !== id); saveData(); renderWeeklyProgressList(); } }
+        function deleteWeekly(id) { if(confirm("Delete?")) { weeklyProgress = weeklyProgress.filter(w => w.id !== id); saveData(); queueActivitiesSync(); renderWeeklyProgressList(); } }
 
         function exportWeeklyProgress(format) {
             const filtered = weeklyProgress.filter(w => w.class === weeklyClass);
@@ -9306,13 +10044,15 @@ Gameri Higher Secondary School, Gamiri`;
 
         function switchSettingsTab(tab, el) {
             document.querySelectorAll('#page-settings .chip-container .chip').forEach(c => c.classList.remove('active'));
-            el.classList.add('active');
-            ['general', 'staff', 'header', 'data', 'more'].forEach(t => {
+            if (el) el.classList.add('active');
+            ['general', 'staff', 'academic', 'header', 'data', 'more'].forEach(t => {
                 const contentEl = document.getElementById('set-content-' + t);
                 if (contentEl) contentEl.style.display = t === tab ? 'block' : 'none';
             });
             if (tab === 'staff') {
                 loadStaffList();
+            } else if (tab === 'academic') {
+                loadAcademicYearsList();
             }
         }
 
@@ -9693,6 +10433,8 @@ Gameri Higher Secondary School, Gamiri`;
             const iconText = document.getElementById('profile-edit-icon-text');
             const saveTeacherBtn = document.getElementById('btn-save-teacher');
             const saveSchoolBtn = document.getElementById('btn-save-school');
+            const teacherActions = document.getElementById('teacher-edit-actions');
+            const schoolActions = document.getElementById('school-edit-actions');
 
             inputs.forEach(i => {
                 i.disabled = !isProfileEditMode;
@@ -9705,9 +10447,11 @@ Gameri Higher Secondary School, Gamiri`;
                 }
             });
 
-            iconText.innerText = isProfileEditMode ? '👁️' : '✏️';
-            saveTeacherBtn.style.display = isProfileEditMode ? 'block' : 'none';
-            saveSchoolBtn.style.display = isProfileEditMode ? 'block' : 'none';
+            if (iconText) iconText.innerText = isProfileEditMode ? '👁️' : '✏️';
+            if (saveTeacherBtn) saveTeacherBtn.style.display = isProfileEditMode ? 'block' : 'none';
+            if (saveSchoolBtn) saveSchoolBtn.style.display = isProfileEditMode ? 'block' : 'none';
+            if (teacherActions) teacherActions.style.display = isProfileEditMode ? 'flex' : 'none';
+            if (schoolActions) schoolActions.style.display = isProfileEditMode ? 'flex' : 'none';
 
             if(!isProfileEditMode) renderProfile();
         }
@@ -9720,6 +10464,12 @@ Gameri Higher Secondary School, Gamiri`;
             if(saveTeacherBtn) saveTeacherBtn.style.display = 'none';
             const saveSchoolBtn = document.getElementById('btn-save-school');
             if(saveSchoolBtn) saveSchoolBtn.style.display = 'none';
+            const teacherActions = document.getElementById('teacher-edit-actions');
+            const schoolActions = document.getElementById('school-edit-actions');
+            if(teacherActions) teacherActions.style.display = 'none';
+            if(schoolActions) schoolActions.style.display = 'none';
+            const scrollArea = document.getElementById('profile-modal-scroll-area');
+            if(scrollArea) scrollArea.scrollTop = 0;
 
             // Render Staff Session Info in Modal
             const sessionContent = document.getElementById('profile-session-content');
@@ -9815,6 +10565,8 @@ Gameri Higher Secondary School, Gamiri`;
             el.classList.add('active');
             document.getElementById('profile-teacher-section').style.display = tab === 'teacher' ? 'block' : 'none';
             document.getElementById('profile-school-section').style.display = tab === 'school' ? 'block' : 'none';
+            const scrollArea = document.getElementById('profile-modal-scroll-area');
+            if (scrollArea) scrollArea.scrollTop = 0;
         }
 
         let audioCtx = null;
@@ -10101,19 +10853,24 @@ Gameri Higher Secondary School, Gamiri`;
                 document.getElementById('app-version-display').innerText = APP_VERSION;
             }
 
-            updateSettingsUI(); renderStats(); setupFilterChips(); updateProfileUI();
+            updateSettingsUI(); renderStats(); updateProfileUI();
             const homeFabInit = document.querySelector('.fab');
             if (homeFabInit) homeFabInit.style.display = 'none';
             applyStaffRoleScope(currentStaffUser);
 
-            // Attendance 2.0 Initialization
+            // Attendance 2.0 Settings Fields
             const thSelect = document.getElementById('settings-alert-threshold');
             if (thSelect) thSelect.value = alertThreshold;
             const topThSelect = document.getElementById('alert-threshold-select');
             if (topThSelect) topThSelect.value = alertThreshold;
             const tmplText = document.getElementById('settings-alert-template');
             if (tmplText) tmplText.value = alertTemplate;
-            refreshAlertsEngine(false);
+
+            // Non-critical background tasks deferred out of critical startup path
+            setTimeout(() => {
+                refreshAlertsEngine(false);
+                loadAcademicCalendarScript();
+            }, 350);
 
             // Show last sync time if exists
             const lastSync = localStorage.getItem('itd3_last_sync');
@@ -10229,16 +10986,8 @@ Gameri Higher Secondary School, Gamiri`;
             if (window.reminderInterval) clearInterval(window.reminderInterval);
             window.reminderInterval = setInterval(checkAttendanceReminders, 30000);
 
-            // Sync native background alarms on startup
-            if (window.Android && window.Android.syncNativeState) {
-                window.Android.syncNativeState(
-                    JSON.stringify(timetable),
-                    JSON.stringify(reminderSettings),
-                    JSON.stringify(attendance),
-                    JSON.stringify(dayStatusOverrides),
-                    JSON.stringify(classNotHeld)
-                );
-            }
+            // Sync native background alarms on startup (batched & debounced)
+            scheduleNativeReminderSync();
 
             // Initialize SyncManager for background production cloud synchronization
             if (window.SyncManager) {
@@ -10246,6 +10995,920 @@ Gameri Higher Secondary School, Gamiri`;
             }
         }
         init();
+
+        // =========================================================================
+        // ACADEMIC YEAR MANAGEMENT & SESSION CONTROLLER (Step 2)
+        // =========================================================================
+        let pendingAcademicAction = null;
+
+        function loadAcademicYearsList() {
+            const container = document.getElementById('academic-years-list-container');
+            const bannerCode = document.getElementById('active-year-code-display');
+            const bannerDates = document.getElementById('active-year-dates-display');
+            if (bannerCode) bannerCode.innerText = activeAcademicYear;
+
+            if (container) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:24px 10px; color:var(--accent-purple);">
+                        <div style="font-size:1.5rem; margin-bottom:6px;">⏳</div>
+                        <div style="font-size:0.82rem; font-weight:700;">Loading academic sessions...</div>
+                    </div>
+                `;
+            }
+
+            const { apiUrl, token, apiKey, schoolId } = getAdminApiParams();
+
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    action: 'get_academic_years',
+                    schoolId: schoolId,
+                    token: token,
+                    apiKey: apiKey
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.success && Array.isArray(data.academicYears) && data.academicYears.length > 0) {
+                    academicYearsList = data.academicYears;
+                    const activeSession = academicYearsList.find(y => y.is_active === 1 || y.is_active === true);
+                    if (activeSession) {
+                        activeAcademicYear = activeSession.code;
+                        window.activeAcademicYear = activeAcademicYear;
+                        localStorage.setItem('itd3_active_academic_year', activeAcademicYear);
+                    }
+                    localStorage.setItem('itd3_academic_years', JSON.stringify(academicYearsList));
+                }
+                renderAcademicYearsUI();
+            })
+            .catch(err => {
+                console.warn('[AcademicYears] Worker fetch failed, using local cache:', err);
+                renderAcademicYearsUI();
+            });
+        }
+
+        function renderAcademicYearsUI() {
+            const container = document.getElementById('academic-years-list-container');
+            const bannerCode = document.getElementById('active-year-code-display');
+            const bannerDates = document.getElementById('active-year-dates-display');
+
+            const current = academicYearsList.find(y => y.code === activeAcademicYear) || {
+                code: activeAcademicYear,
+                title: `Academic Session ${activeAcademicYear}`,
+                start_date: `${activeAcademicYear.split('-')[0]}-04-01`,
+                end_date: `${activeAcademicYear.split('-')[1] || activeAcademicYear.split('-')[0]}-03-31`
+            };
+
+            if (bannerCode) bannerCode.innerText = current.code;
+            if (bannerDates && current.start_date && current.end_date) {
+                bannerDates.innerText = `${current.start_date} – ${current.end_date}`;
+            }
+
+            if (!container) return;
+            if (!academicYearsList || academicYearsList.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-dim); font-size:0.8rem;">No academic sessions found. Click "+ New Session" to create one.</div>';
+                return;
+            }
+
+            container.innerHTML = academicYearsList.map(y => {
+                const isActive = (y.code === activeAcademicYear) || y.is_active === 1 || y.is_active === true;
+                const status = (y.status || (isActive ? 'ACTIVE' : 'PLANNED')).toUpperCase();
+                let statusBadge = '';
+                if (isActive) {
+                    statusBadge = '<span class="badge" style="background:#2ecc71; color:#fff; font-size:0.7rem; font-weight:700;">ACTIVE</span>';
+                } else if (status === 'CLOSED') {
+                    statusBadge = '<span class="badge" style="background:rgba(255,255,255,0.1); color:var(--text-dim); font-size:0.7rem; font-weight:600;">CLOSED</span>';
+                } else if (status === 'ARCHIVED') {
+                    statusBadge = '<span class="badge" style="background:rgba(231,76,60,0.15); color:var(--accent-red); font-size:0.7rem; font-weight:600;">ARCHIVED</span>';
+                } else {
+                    statusBadge = '<span class="badge" style="background:rgba(248,155,41,0.15); color:var(--accent-amber); font-size:0.7rem; font-weight:700;">PLANNED</span>';
+                }
+
+                const canSetActive = !isActive && status !== 'CLOSED' && status !== 'ARCHIVED';
+                const canClose = (isActive || status === 'PLANNED') && status !== 'CLOSED' && status !== 'ARCHIVED';
+
+                return `
+                    <div class="report-card" style="border-left-color: ${isActive ? '#2ecc71' : 'var(--accent-purple)'}; padding:14px; margin-bottom:0; background:rgba(255,255,255,0.03);">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
+                            <div>
+                                <strong style="font-size:0.95rem; color:var(--text);">${y.code}</strong>
+                                <span style="font-size:0.8rem; color:var(--text-dim); margin-left:6px;">${y.title || `Academic Session ${y.code}`}</span>
+                            </div>
+                            <div>${statusBadge}</div>
+                        </div>
+                        <div style="font-size:0.72rem; color:var(--text-dim); margin-bottom:10px;">
+                            📅 ${y.start_date || '—'} &nbsp;to&nbsp; ${y.end_date || '—'}
+                            ${y.description ? ` &bull; <em>${y.description}</em>` : ''}
+                        </div>
+                        <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
+                            ${canSetActive ? `<button onclick="openAcademicActionConfirm('SET_ACTIVE', '${y.code}')" style="background:rgba(46,204,113,0.12); border:1px solid #2ecc71; color:#2ecc71; padding:6px 12px; border-radius:8px; font-size:0.72rem; font-weight:700; cursor:pointer;">⭐ Set Active</button>` : ''}
+                            ${canClose ? `<button onclick="openAcademicActionConfirm('CLOSE', '${y.code}')" style="background:none; border:1px solid var(--accent-amber); color:var(--accent-amber); padding:6px 12px; border-radius:8px; font-size:0.72rem; font-weight:600; cursor:pointer;">🔒 Close Session</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openAddAcademicYearModal() {
+            const nextYearNum = new Date().getFullYear() + 1;
+            const nextCode = `${nextYearNum}-${nextYearNum + 1}`;
+            const codeInput = document.getElementById('ay-code');
+            const titleInput = document.getElementById('ay-title');
+            const startInput = document.getElementById('ay-start-date');
+            const endInput = document.getElementById('ay-end-date');
+            const descInput = document.getElementById('ay-description');
+            const activeCheck = document.getElementById('ay-set-active');
+
+            if (codeInput) codeInput.value = nextCode;
+            if (titleInput) titleInput.value = `Academic Session ${nextCode}`;
+            if (startInput) startInput.value = `${nextYearNum}-04-01`;
+            if (endInput) endInput.value = `${nextYearNum + 1}-03-31`;
+            if (descInput) descInput.value = '';
+            if (activeCheck) activeCheck.checked = false;
+
+            openModal('modal-academic-year');
+        }
+
+        function saveAcademicYearRecord() {
+            const codeInput = document.getElementById('ay-code');
+            const titleInput = document.getElementById('ay-title');
+            const startInput = document.getElementById('ay-start-date');
+            const endInput = document.getElementById('ay-end-date');
+            const descInput = document.getElementById('ay-description');
+            const activeCheck = document.getElementById('ay-set-active');
+
+            const code = codeInput ? codeInput.value.trim() : '';
+            const title = titleInput ? titleInput.value.trim() : `Academic Session ${code}`;
+            const startDate = startInput ? startInput.value : '';
+            const endDate = endInput ? endInput.value : '';
+            const description = descInput ? descInput.value.trim() : '';
+            const setActiveNow = activeCheck ? activeCheck.checked : false;
+
+            if (!code || !/^\d{4}-\d{4}$/.test(code)) {
+                showToast("Invalid code! Use YYYY-YYYY format (e.g. 2027-2028)", "error");
+                return;
+            }
+            if (!startDate || !endDate) {
+                showToast("Please provide both Start and End dates", "error");
+                return;
+            }
+
+            const { apiUrl, token, apiKey, schoolId } = getAdminApiParams();
+
+            const existingIdx = academicYearsList.findIndex(y => y.code === code);
+            const record = {
+                code,
+                title,
+                start_date: startDate,
+                end_date: endDate,
+                description,
+                status: setActiveNow ? 'ACTIVE' : 'PLANNED',
+                is_active: setActiveNow ? 1 : 0
+            };
+
+            if (setActiveNow) {
+                academicYearsList.forEach(y => { y.is_active = 0; if (y.status === 'ACTIVE') y.status = 'CLOSED'; });
+                activeAcademicYear = code;
+                window.activeAcademicYear = code;
+                localStorage.setItem('itd3_active_academic_year', code);
+            }
+
+            if (existingIdx >= 0) academicYearsList[existingIdx] = record;
+            else academicYearsList.push(record);
+            localStorage.setItem('itd3_academic_years', JSON.stringify(academicYearsList));
+            renderAcademicYearsUI();
+            closeModal('modal-academic-year');
+            showToast(`Academic session ${code} saved!`);
+
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    action: 'save_academic_year',
+                    schoolId,
+                    token,
+                    apiKey,
+                    academicYear: record
+                })
+            }).then(res => res.json()).then(() => {
+                if (setActiveNow) {
+                    return fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action: 'set_active_academic_year',
+                            schoolId,
+                            token,
+                            apiKey,
+                            academicYear: code
+                        })
+                    });
+                }
+            }).then(() => {
+                loadAcademicYearsList();
+            }).catch(err => console.warn('[AcademicYears] Cloud sync deferred:', err));
+        }
+
+        function openAcademicActionConfirm(action, code) {
+            pendingAcademicAction = { action, code };
+            const titleEl = document.getElementById('ay-confirm-title');
+            const msgEl = document.getElementById('ay-confirm-message');
+            const subEl = document.getElementById('ay-confirm-sub');
+            const btnEl = document.getElementById('btn-ay-confirm-action');
+
+            if (action === 'SET_ACTIVE') {
+                if (titleEl) titleEl.innerText = '⭐ Switch Active Academic Year';
+                if (msgEl) msgEl.innerText = `Are you sure you want to set Academic Session "${code}" as the active session?`;
+                if (subEl) subEl.innerText = 'All daily student attendance, new enrollments, and live metrics will point to this academic year.';
+                if (btnEl) {
+                    btnEl.innerText = 'Set Active';
+                    btnEl.style.background = '#2ecc71';
+                }
+            } else if (action === 'CLOSE') {
+                if (titleEl) titleEl.innerText = '🔒 Close Academic Session';
+                if (msgEl) msgEl.innerText = `Are you sure you want to close Academic Session "${code}"?`;
+                if (subEl) subEl.innerText = 'Closed sessions are read-only. Student marks and attendance records remain preserved in historical view.';
+                if (btnEl) {
+                    btnEl.innerText = 'Close Session';
+                    btnEl.style.background = 'var(--accent-amber)';
+                }
+            }
+
+            openModal('modal-academic-confirm');
+        }
+
+        function executeAcademicActionConfirm() {
+            if (!pendingAcademicAction) return;
+            const { action, code } = pendingAcademicAction;
+            closeModal('modal-academic-confirm');
+            pendingAcademicAction = null;
+
+            const { apiUrl, token, apiKey, schoolId } = getAdminApiParams();
+
+            if (action === 'SET_ACTIVE') {
+                activeAcademicYear = code;
+                window.activeAcademicYear = code;
+                localStorage.setItem('itd3_active_academic_year', code);
+                academicYearsList.forEach(y => {
+                    y.is_active = (y.code === code) ? 1 : 0;
+                    if (y.code === code) y.status = 'ACTIVE';
+                });
+                localStorage.setItem('itd3_academic_years', JSON.stringify(academicYearsList));
+                renderAcademicYearsUI();
+                showToast(`Active academic session set to ${code}!`);
+
+                fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'set_active_academic_year',
+                        schoolId,
+                        token,
+                        apiKey,
+                        academicYear: code
+                    })
+                }).then(res => res.json()).then(() => loadAcademicYearsList()).catch(e => console.warn(e));
+
+            } else if (action === 'CLOSE') {
+                const target = academicYearsList.find(y => y.code === code);
+                if (target) {
+                    target.status = 'CLOSED';
+                    if (target.is_active === 1 && activeAcademicYear === code) {
+                        target.is_active = 0;
+                    }
+                }
+                localStorage.setItem('itd3_academic_years', JSON.stringify(academicYearsList));
+                renderAcademicYearsUI();
+                showToast(`Academic session ${code} marked as CLOSED!`);
+
+                fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'close_academic_year',
+                        schoolId,
+                        token,
+                        apiKey,
+                        academicYear: code
+                    })
+                }).then(res => res.json()).then(() => loadAcademicYearsList()).catch(e => console.warn(e));
+            }
+        }
+
+        // =========================================================================
+        // PROMOTION WIZARD CONTROLLER (Step 2)
+        // =========================================================================
+        let promoState = {
+            sourceClass: '9',
+            targetClass: '10',
+            sourceYear: '2026-2027',
+            targetYear: '2027-2028',
+            candidates: []
+        };
+
+        function openPromotionWizardModal() {
+            if (currentStaffUser && currentStaffUser.role === 'TEACHER') {
+                showToast("Access Denied: Only Principal or Administrator can execute promotions", "error");
+                return;
+            }
+
+            if (!selectedStudents || selectedStudents.size === 0) {
+                showToast("Please select at least one student from the list to promote", "info");
+                return;
+            }
+
+            const candidateList = students.filter(s => selectedStudents.has(s.id));
+            const distinctClasses = [...new Set(candidateList.map(s => s.class))];
+
+            if (distinctClasses.length > 1) {
+                alert(`Selected students belong to multiple classes (Class ${distinctClasses.join(', ')}).\n\nFor consistent roll numbers and safety, please select students from one class at a time for promotion.`);
+                return;
+            }
+
+            const srcClass = distinctClasses[0] || '9';
+            promoState.sourceClass = srcClass;
+            promoState.sourceYear = activeAcademicYear || '2026-2027';
+
+            const srcNum = parseInt(srcClass, 10);
+            const isClass12 = (srcNum === 12);
+            promoState.targetClass = isClass12 ? 'COMPLETED' : (srcNum + 1).toString();
+
+            const parts = promoState.sourceYear.split('-');
+            const nextStart = parseInt(parts[0] || '2026', 10) + 1;
+            const defaultTargetYear = `${nextStart}-${nextStart + 1}`;
+            promoState.targetYear = defaultTargetYear;
+
+            const srcYearLabel = document.getElementById('promo-source-year-label');
+            const srcClassLabel = document.getElementById('promo-source-class-label');
+            if (srcYearLabel) srcYearLabel.innerText = promoState.sourceYear;
+            if (srcClassLabel) srcClassLabel.innerText = `Class ${srcClass}`;
+
+            const yearSelect = document.getElementById('promo-target-year-select');
+            if (yearSelect) {
+                yearSelect.innerHTML = '';
+                const availableYears = academicYearsList.map(y => y.code);
+                if (!availableYears.includes(defaultTargetYear)) availableYears.push(defaultTargetYear);
+                if (!availableYears.includes(promoState.sourceYear)) availableYears.unshift(promoState.sourceYear);
+
+                availableYears.forEach(y => {
+                    const opt = document.createElement('option');
+                    opt.value = y;
+                    opt.innerText = (y === activeAcademicYear) ? `${y} (Current)` : y;
+                    if (y === defaultTargetYear) opt.selected = true;
+                    yearSelect.appendChild(opt);
+                });
+                promoState.targetYear = yearSelect.value;
+            }
+
+            const classSelect = document.getElementById('promo-target-class-select');
+            const cls12Notice = document.getElementById('promo-class12-notice');
+            if (classSelect) {
+                classSelect.innerHTML = '';
+                if (isClass12) {
+                    const opt = document.createElement('option');
+                    opt.value = 'COMPLETED';
+                    opt.innerText = '🎓 Course Completed / Graduated';
+                    classSelect.appendChild(opt);
+                    classSelect.disabled = true;
+                    if (cls12Notice) cls12Notice.style.display = 'block';
+                } else {
+                    classSelect.disabled = false;
+                    if (cls12Notice) cls12Notice.style.display = 'none';
+                    const nextCls = (srcNum + 1).toString();
+                    const optNext = document.createElement('option');
+                    optNext.value = nextCls;
+                    optNext.innerText = `Class ${nextCls} (Promoted)`;
+                    optNext.selected = true;
+                    classSelect.appendChild(optNext);
+
+                    const optRepeat = document.createElement('option');
+                    optRepeat.value = srcClass;
+                    optRepeat.innerText = `Class ${srcClass} (Repeat / Detained)`;
+                    classSelect.appendChild(optRepeat);
+                }
+                promoState.targetClass = classSelect.value;
+            }
+
+            candidateList.sort((a, b) => (parseInt(a.roll, 10) || 0) - (parseInt(b.roll, 10) || 0));
+            promoState.candidates = candidateList.map((s, idx) => ({
+                id: s.id,
+                name: s.name,
+                currentClass: s.class,
+                currentRoll: s.roll || '',
+                currentSection: s.section || 'A',
+                targetRoll: isClass12 ? '' : (s.roll ? s.roll : (idx + 1).toString()),
+                targetSection: s.section || 'A',
+                selected: true
+            }));
+
+            renderPromotionCandidateRows();
+            openModal('modal-promotion-wizard');
+        }
+
+        function renderPromotionCandidateRows() {
+            const container = document.getElementById('promo-students-table-container');
+            const countLabel = document.getElementById('promo-candidate-count');
+            const isClass12 = (promoState.targetClass === 'COMPLETED');
+
+            if (countLabel) countLabel.innerText = `Candidates (${promoState.candidates.length})`;
+            if (!container) return;
+
+            container.innerHTML = promoState.candidates.map((c, i) => `
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:8px; border-bottom:1px solid rgba(255,255,255,0.05); gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
+                        <input type="checkbox" ${c.selected ? 'checked' : ''} onchange="togglePromoCandidateSelection(${i}, this.checked)" style="width:18px; height:18px;">
+                        <div style="min-width:0; flex:1;">
+                            <div style="font-size:0.85rem; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.name}</div>
+                            <div style="font-size:0.72rem; color:var(--text-dim);">Roll: ${c.currentRoll || 'N/A'} | Sec: ${c.currentSection}</div>
+                        </div>
+                    </div>
+                    ${!isClass12 ? `
+                        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                            <span style="font-size:0.72rem; color:var(--text-dim);">Target Roll:</span>
+                            <input type="number" min="1" value="${c.targetRoll}" oninput="updatePromoCandidateRoll(${i}, this.value)" style="width:65px; padding:5px 8px; border-radius:8px; background:rgba(0,0,0,0.4); border:1px solid var(--glass-border); color:var(--text); font-weight:700; font-size:0.82rem; text-align:center;">
+                        </div>
+                    ` : `
+                        <span class="badge" style="background:rgba(46,204,113,0.15); color:#2ecc71; font-size:0.72rem; font-weight:700;">GRADUATE</span>
+                    `}
+                </div>
+            `).join('');
+
+            validatePromotionWizard();
+        }
+
+        function togglePromoCandidateSelection(index, isChecked) {
+            if (promoState.candidates[index]) {
+                promoState.candidates[index].selected = isChecked;
+                validatePromotionWizard();
+            }
+        }
+
+        function updatePromoCandidateRoll(index, value) {
+            if (promoState.candidates[index]) {
+                promoState.candidates[index].targetRoll = value.trim();
+                validatePromotionWizard();
+            }
+        }
+
+        function promoAutoSequenceRolls() {
+            let seq = 1;
+            promoState.candidates.forEach(c => {
+                if (c.selected) {
+                    c.targetRoll = seq.toString();
+                    seq++;
+                }
+            });
+            renderPromotionCandidateRows();
+        }
+
+        function promoKeepExistingRolls() {
+            promoState.candidates.forEach(c => {
+                c.targetRoll = c.currentRoll || '1';
+            });
+            renderPromotionCandidateRows();
+        }
+
+        function onPromoTargetYearChange() {
+            const select = document.getElementById('promo-target-year-select');
+            if (select) promoState.targetYear = select.value;
+            validatePromotionWizard();
+        }
+
+        function onPromoTargetClassChange() {
+            const select = document.getElementById('promo-target-class-select');
+            if (select) {
+                promoState.targetClass = select.value;
+                const isClass12 = (promoState.targetClass === 'COMPLETED');
+                const cls12Notice = document.getElementById('promo-class12-notice');
+                if (cls12Notice) cls12Notice.style.display = isClass12 ? 'block' : 'none';
+                renderPromotionCandidateRows();
+            }
+        }
+
+        function validatePromotionWizard() {
+            const alertEl = document.getElementById('promo-validation-alert');
+            const btnExecute = document.getElementById('btn-promo-execute');
+            const isClass12 = (promoState.targetClass === 'COMPLETED');
+
+            const activeCandidates = promoState.candidates.filter(c => c.selected);
+            if (activeCandidates.length === 0) {
+                if (alertEl) {
+                    alertEl.innerText = "No students selected for promotion.";
+                    alertEl.style.display = 'block';
+                }
+                if (btnExecute) btnExecute.disabled = true;
+                return false;
+            }
+
+            if (!isClass12) {
+                const emptyRoll = activeCandidates.find(c => !c.targetRoll || parseInt(c.targetRoll, 10) <= 0);
+                if (emptyRoll) {
+                    if (alertEl) {
+                        alertEl.innerText = `Please assign a valid target roll number for ${emptyRoll.name}.`;
+                        alertEl.style.display = 'block';
+                    }
+                    if (btnExecute) btnExecute.disabled = true;
+                    return false;
+                }
+
+                const rollMap = new Map();
+                for (const c of activeCandidates) {
+                    const key = `${c.targetSection || 'A'}_${c.targetRoll}`;
+                    if (rollMap.has(key)) {
+                        if (alertEl) {
+                            alertEl.innerText = `Duplicate Roll Conflict: Roll #${c.targetRoll} is assigned to both ${rollMap.get(key)} and ${c.name}.`;
+                            alertEl.style.display = 'block';
+                        }
+                        if (btnExecute) btnExecute.disabled = true;
+                        return false;
+                    }
+                    rollMap.set(key, c.name);
+                }
+
+                const srcNum = parseInt(promoState.sourceClass, 10);
+                const targetNum = parseInt(promoState.targetClass, 10);
+                if (targetNum > srcNum + 1) {
+                    if (alertEl) {
+                        alertEl.innerText = `Invalid promotion: Cannot leap students from Class ${srcNum} to Class ${targetNum}.`;
+                        alertEl.style.display = 'block';
+                    }
+                    if (btnExecute) btnExecute.disabled = true;
+                    return false;
+                }
+            }
+
+            if (alertEl) alertEl.style.display = 'none';
+            if (btnExecute) btnExecute.disabled = false;
+            return true;
+        }
+
+        function confirmAndExecutePromotion() {
+            if (!validatePromotionWizard()) return;
+
+            const activeCandidates = promoState.candidates.filter(c => c.selected);
+            const isClass12 = (promoState.targetClass === 'COMPLETED');
+            const targetYear = promoState.targetYear;
+            const targetClass = promoState.targetClass;
+            const srcClass = promoState.sourceClass;
+
+            const confirmMsg = isClass12
+                ? `Confirm Graduation:\n\nGraduate ${activeCandidates.length} Class 12 student(s) for Academic Year ${targetYear}?`
+                : `Confirm Promotion:\n\nPromote ${activeCandidates.length} student(s) from Class ${srcClass} to Class ${targetClass} for Academic Year ${targetYear}?`;
+
+            if (!confirm(confirmMsg)) return;
+
+            const { apiUrl, token, apiKey, schoolId } = getAdminApiParams();
+            const timestamp = new Date().toISOString();
+
+            const promotionsPayload = activeCandidates.map(c => ({
+                studentId: c.id,
+                currentClass: c.currentClass,
+                targetClass: isClass12 ? 'COMPLETED' : targetClass,
+                targetSection: c.targetSection || 'A',
+                targetRoll: isClass12 ? '' : c.targetRoll,
+                promotionDecision: isClass12 ? 'COMPLETED' : (targetClass === srcClass ? 'DETAINED' : 'PROMOTED'),
+                academicYear: targetYear
+            }));
+
+            activeCandidates.forEach(c => {
+                const s = students.find(x => x.id === c.id);
+                if (!s) return;
+
+                const existingEnr = enrollments.find(e => e.student_id === s.id && e.academic_year === promoState.sourceYear);
+                if (!existingEnr) {
+                    enrollments.push({
+                        id: `ENR_${s.id}_${promoState.sourceYear}`,
+                        student_id: s.id,
+                        academic_year: promoState.sourceYear,
+                        class: s.class,
+                        section: s.section || 'A',
+                        roll_no: s.roll || '',
+                        status: s.status || 'Active',
+                        promotion_decision: isClass12 ? 'COMPLETED' : (targetClass === srcClass ? 'DETAINED' : 'PROMOTED'),
+                        created_at: timestamp
+                    });
+                } else {
+                    existingEnr.promotion_decision = isClass12 ? 'COMPLETED' : (targetClass === srcClass ? 'DETAINED' : 'PROMOTED');
+                }
+
+                enrollments.push({
+                    id: `ENR_${s.id}_${targetYear}`,
+                    student_id: s.id,
+                    academic_year: targetYear,
+                    class: isClass12 ? 'COMPLETED' : targetClass,
+                    section: c.targetSection || 'A',
+                    roll_no: isClass12 ? '' : c.targetRoll,
+                    status: isClass12 ? 'Graduated' : 'Active',
+                    promotion_decision: 'ENROLLED',
+                    created_at: timestamp
+                });
+
+                const oldClass = s.class;
+                const oldRoll = s.roll;
+                if (isClass12) {
+                    s.status = 'Passout';
+                    s.academic_year = targetYear;
+                    logAudit('Student Graduated', 'Academic Promotion', `Class 12 (${promoState.sourceYear})`, `Graduated (${targetYear})`, s.name);
+                } else {
+                    s.class = targetClass;
+                    s.roll = c.targetRoll;
+                    s.section = c.targetSection || 'A';
+                    s.status = 'Active';
+                    s.academic_year = targetYear;
+                    logAudit('Student Promoted', 'Academic Promotion', `Class ${oldClass} Roll ${oldRoll} (${promoState.sourceYear})`, `Class ${targetClass} Roll ${c.targetRoll} (${targetYear})`, s.name);
+                }
+            });
+
+            saveData();
+            queueStudentsSync();
+
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    action: 'promote_students',
+                    schoolId,
+                    token,
+                    apiKey,
+                    sourceAcademicYear: promoState.sourceYear,
+                    targetAcademicYear: targetYear,
+                    sourceClass: srcClass,
+                    targetClass: isClass12 ? 'COMPLETED' : targetClass,
+                    promotions: promotionsPayload
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.success) {
+                    console.log(`[Promotion] Cloud D1 batch promotion complete: ${data.promotedCount} students processed.`);
+                } else {
+                    console.warn('[Promotion] Server returned warning, offline queue active:', data);
+                }
+            })
+            .catch(err => {
+                console.warn('[Promotion] Worker API offline, local state preserved:', err);
+            });
+
+            selectedStudents.clear();
+            closeModal('modal-promotion-wizard');
+            renderStudentList();
+            showToast(`Successfully ${isClass12 ? 'graduated' : 'promoted'} ${activeCandidates.length} student(s)!`, 'success');
+        }
+
+        // =========================================================================
+        // SINGLE STUDENT PROMOTION (Modal & Handler)
+        // =========================================================================
+        let currentSinglePromoStudent = null;
+
+        function openPromoteSingleModal() {
+            if (currentStaffUser && currentStaffUser.role === 'TEACHER') {
+                showToast("Access Denied: Only Principal or Administrator can execute promotions", "error");
+                return;
+            }
+
+            const s = students.find(x => x.id === currentDetailId);
+            if (!s) { showToast("Student not found", "error"); return; }
+            currentSinglePromoStudent = s;
+
+            const nameEl = document.getElementById('single-promo-name');
+            const infoEl = document.getElementById('single-promo-current-info');
+            const cls12View = document.getElementById('single-promo-cls12-view');
+            const stdView = document.getElementById('single-promo-standard-view');
+            const btnConfirm = document.getElementById('btn-single-promo-confirm');
+
+            if (nameEl) nameEl.innerText = s.name;
+            if (infoEl) infoEl.innerText = `Current: Class ${s.class} | Roll: ${s.roll || 'N/A'} | Sec: ${s.section || 'A'}`;
+
+            const isClass12 = (parseInt(s.class, 10) === 12);
+            if (isClass12) {
+                if (cls12View) cls12View.style.display = 'block';
+                if (stdView) stdView.style.display = 'none';
+                if (btnConfirm) {
+                    btnConfirm.innerText = 'Graduate Student';
+                    btnConfirm.style.background = '#2ecc71';
+                }
+            } else {
+                if (cls12View) cls12View.style.display = 'none';
+                if (stdView) stdView.style.display = 'block';
+                if (btnConfirm) {
+                    btnConfirm.innerText = 'Confirm Promotion';
+                    btnConfirm.style.background = 'var(--accent-teal)';
+                }
+
+                const yearSelect = document.getElementById('single-promo-target-year');
+                if (yearSelect) {
+                    yearSelect.innerHTML = '';
+                    const availableYears = academicYearsList.map(y => y.code);
+                    const parts = (activeAcademicYear || '2026-2027').split('-');
+                    const nextYr = `${parseInt(parts[0], 10) + 1}-${parseInt(parts[0], 10) + 2}`;
+                    if (!availableYears.includes(nextYr)) availableYears.push(nextYr);
+                    if (!availableYears.includes(activeAcademicYear)) availableYears.unshift(activeAcademicYear);
+
+                    availableYears.forEach(y => {
+                        const opt = document.createElement('option');
+                        opt.value = y;
+                        opt.innerText = (y === activeAcademicYear) ? `${y} (Current)` : y;
+                        if (y === nextYr) opt.selected = true;
+                        yearSelect.appendChild(opt);
+                    });
+                }
+
+                const classSelect = document.getElementById('single-promo-target-class');
+                if (classSelect) {
+                    classSelect.innerHTML = '';
+                    const nextCls = (parseInt(s.class, 10) + 1).toString();
+                    const optNext = document.createElement('option');
+                    optNext.value = nextCls;
+                    optNext.innerText = `Class ${nextCls} (Promoted)`;
+                    optNext.selected = true;
+                    classSelect.appendChild(optNext);
+
+                    const optRep = document.createElement('option');
+                    optRep.value = s.class;
+                    optRep.innerText = `Class ${s.class} (Repeat)`;
+                    classSelect.appendChild(optRep);
+                }
+
+                const secInput = document.getElementById('single-promo-target-section');
+                if (secInput) secInput.value = s.section || 'A';
+
+                const rollInput = document.getElementById('single-promo-target-roll');
+                if (rollInput) rollInput.value = s.roll || '1';
+
+                validateSinglePromoRoll();
+            }
+
+            openModal('modal-promote-single');
+        }
+
+        function validateSinglePromoRoll() {
+            const rollInput = document.getElementById('single-promo-target-roll');
+            const classSelect = document.getElementById('single-promo-target-class');
+            const secInput = document.getElementById('single-promo-target-section');
+            const warnEl = document.getElementById('single-promo-roll-warn');
+            const btn = document.getElementById('btn-single-promo-confirm');
+
+            if (!rollInput || !classSelect || !currentSinglePromoStudent) return;
+            const roll = rollInput.value.trim();
+            const targetClass = classSelect.value;
+            const targetSec = secInput ? secInput.value.trim() : 'A';
+
+            if (!roll || parseInt(roll, 10) <= 0) {
+                if (warnEl) { warnEl.innerText = "Please enter a valid roll number"; warnEl.style.display = 'block'; }
+                if (btn) btn.disabled = true;
+                return;
+            }
+
+            const conflict = students.find(x => x.class === targetClass && (x.section || 'A') === targetSec && x.roll == roll && x.id !== currentSinglePromoStudent.id);
+            if (conflict) {
+                if (warnEl) {
+                    warnEl.innerText = `⚠️ Roll #${roll} is already taken in Class ${targetClass} (${targetSec}) by ${conflict.name}!`;
+                    warnEl.style.display = 'block';
+                }
+                if (btn) btn.disabled = true;
+            } else {
+                if (warnEl) warnEl.style.display = 'none';
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        function executeSinglePromotion() {
+            const s = currentSinglePromoStudent;
+            if (!s) return;
+
+            const isClass12 = (parseInt(s.class, 10) === 12);
+            const { apiUrl, token, apiKey, schoolId } = getAdminApiParams();
+            const timestamp = new Date().toISOString();
+
+            if (isClass12) {
+                const targetYear = activeAcademicYear;
+                s.status = 'Passout';
+                s.academic_year = targetYear;
+
+                enrollments.push({
+                    id: `ENR_${s.id}_${targetYear}`,
+                    student_id: s.id,
+                    academic_year: targetYear,
+                    class: 'COMPLETED',
+                    section: s.section || 'A',
+                    roll_no: '',
+                    status: 'Graduated',
+                    promotion_decision: 'COMPLETED',
+                    created_at: timestamp
+                });
+
+                logAudit('Student Graduated', 'Academic Promotion', `Class 12 (${activeAcademicYear})`, `Graduated`, s.name);
+                saveData();
+                queueStudentsSync();
+
+                fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'promote_students',
+                        schoolId,
+                        token,
+                        apiKey,
+                        sourceAcademicYear: activeAcademicYear,
+                        targetAcademicYear: targetYear,
+                        sourceClass: '12',
+                        targetClass: 'COMPLETED',
+                        promotions: [{
+                            studentId: s.id,
+                            currentClass: '12',
+                            targetClass: 'COMPLETED',
+                            targetSection: s.section || 'A',
+                            targetRoll: '',
+                            promotionDecision: 'COMPLETED',
+                            academicYear: targetYear
+                        }]
+                    })
+                }).catch(e => console.warn(e));
+
+                closeModal('modal-promote-single');
+                closeModal('modal-detail');
+                renderStudentList();
+                showToast(`Student ${s.name} graduated successfully!`, 'success');
+            } else {
+                const yearSelect = document.getElementById('single-promo-target-year');
+                const classSelect = document.getElementById('single-promo-target-class');
+                const secInput = document.getElementById('single-promo-target-section');
+                const rollInput = document.getElementById('single-promo-target-roll');
+
+                const targetYear = yearSelect ? yearSelect.value : activeAcademicYear;
+                const targetClass = classSelect ? classSelect.value : (parseInt(s.class, 10) + 1).toString();
+                const targetSection = secInput ? secInput.value.trim() : (s.section || 'A');
+                const targetRoll = rollInput ? rollInput.value.trim() : (s.roll || '1');
+
+                const oldClass = s.class;
+                const oldRoll = s.roll;
+
+                enrollments.push({
+                    id: `ENR_${s.id}_${activeAcademicYear}`,
+                    student_id: s.id,
+                    academic_year: activeAcademicYear,
+                    class: oldClass,
+                    section: s.section || 'A',
+                    roll_no: oldRoll || '',
+                    status: s.status || 'Active',
+                    promotion_decision: (targetClass === oldClass) ? 'DETAINED' : 'PROMOTED',
+                    created_at: timestamp
+                });
+
+                enrollments.push({
+                    id: `ENR_${s.id}_${targetYear}`,
+                    student_id: s.id,
+                    academic_year: targetYear,
+                    class: targetClass,
+                    section: targetSection,
+                    roll_no: targetRoll,
+                    status: 'Active',
+                    promotion_decision: 'ENROLLED',
+                    created_at: timestamp
+                });
+
+                s.class = targetClass;
+                s.section = targetSection;
+                s.roll = targetRoll;
+                s.academic_year = targetYear;
+                s.status = 'Active';
+
+                logAudit('Student Promoted', 'Academic Promotion', `Class ${oldClass} Roll ${oldRoll}`, `Class ${targetClass} Roll ${targetRoll}`, s.name);
+                saveData();
+                queueStudentsSync();
+
+                fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'promote_students',
+                        schoolId,
+                        token,
+                        apiKey,
+                        sourceAcademicYear: activeAcademicYear,
+                        targetAcademicYear: targetYear,
+                        sourceClass: oldClass,
+                        targetClass: targetClass,
+                        promotions: [{
+                            studentId: s.id,
+                            currentClass: oldClass,
+                            targetClass: targetClass,
+                            targetSection: targetSection,
+                            targetRoll: targetRoll,
+                            promotionDecision: (targetClass === oldClass) ? 'DETAINED' : 'PROMOTED',
+                            academicYear: targetYear
+                        }]
+                    })
+                }).catch(e => console.warn(e));
+
+                closeModal('modal-promote-single');
+                closeModal('modal-detail');
+                renderStudentList();
+                showToast(`Promoted to Class ${targetClass} (Roll ${targetRoll})!`, 'success');
+            }
+        }
+
     </script>
 </body>
 </html>

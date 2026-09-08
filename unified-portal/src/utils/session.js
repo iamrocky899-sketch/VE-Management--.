@@ -52,6 +52,7 @@ export function saveSession(authData) {
     section: authData.section || null,
     rollNo: authData.rollNo || null,
     group: authData.group || null,
+    displayGroup: authData.displayGroup || authData.group || 'Group Not Assigned',
     assignedClasses: Array.isArray(authData.assignedClasses) ? authData.assignedClasses : [],
     assignedSubjects: Array.isArray(authData.assignedSubjects) ? authData.assignedSubjects : [],
     children: Array.isArray(authData.children) ? authData.children : [],

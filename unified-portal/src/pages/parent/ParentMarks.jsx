@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../state/AuthContext';
-import { ApiService } from '../../api/client';
+import { ApiService, resolveStudentGroup } from '../../api/client';
 import {
   Award, BookOpen, BarChart3, ArrowLeft, RefreshCw,
   Printer, CheckCircle2, AlertCircle, AlertTriangle,
@@ -66,23 +66,30 @@ export default function ParentMarks({ setActivePage }) {
   }, [user?.token, selectedChildId]);
 
   const childrenSummaries = dashboardData?.children || [];
+  const effectiveChildren = user?.children || [];
 
   // Resolve active selected child safely
-  let activeChildSummary = childrenSummaries.find(
-    c => String(c.student?.studentId) === String(selectedChildId)
+  const activeChildSummary = childrenSummaries.find(
+    c => String(c.student?.studentId || c.student?.student_id || c.student?.id) === String(selectedChildId)
   );
 
-  if (!activeChildSummary && childrenSummaries.length > 0) {
-    activeChildSummary = childrenSummaries[0];
-  }
+  const matchedRawChild = effectiveChildren.find(
+    c => String(c.studentId || c.student_id || c.id) === String(selectedChildId)
+  ) || effectiveChildren[0];
 
-  const selectedStudent = activeChildSummary?.student || {
-    studentName: 'Child',
-    class: '9',
-    section: 'N/A',
-    rollNo: '1',
-    group: null,
-    studentId: 'STU_0'
+  const rawSelected = (activeChildSummary && String(activeChildSummary.student?.studentId || activeChildSummary.student?.student_id || activeChildSummary.student?.id) === String(selectedChildId))
+    ? activeChildSummary.student
+    : (matchedRawChild || {});
+
+  const assignedGroup = resolveStudentGroup(rawSelected);
+  const selectedStudent = {
+    studentId: rawSelected.studentId || rawSelected.student_id || rawSelected.id || 'STU_0',
+    studentName: rawSelected.studentName || rawSelected.name || 'Child',
+    class: rawSelected.class || '9',
+    section: rawSelected.section || 'N/A',
+    rollNo: rawSelected.rollNo || rawSelected.roll_no || rawSelected.roll || '1',
+    group: assignedGroup !== 'Group Not Assigned' ? assignedGroup : null,
+    displayGroup: assignedGroup
   };
 
   // Filter full marks specifically for the selected child
@@ -249,7 +256,7 @@ export default function ParentMarks({ setActivePage }) {
                     <div style={{ fontSize: '0.75rem', color: isSelected ? '#d1fae5' : '#64748b', display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
                       <span>Class {stu.class}-{stu.section || 'N/A'} • Roll {stu.rollNo}</span>
                       <span>•</span>
-                      <span>Group: {stu.group || 'Group Not Assigned'}</span>
+                      <span>Group: <strong>{stu.displayGroup || stu.group || 'Group Not Assigned'}</strong></span>
                     </div>
                   </div>
                   {isSelected && <CheckCircle2 size={16} color="#ffffff" />}
@@ -292,8 +299,9 @@ export default function ParentMarks({ setActivePage }) {
               <span>•</span>
               <span>Roll No <strong>{selectedStudent.rollNo}</strong></span>
               <span>•</span>
-              <span style={{ background: 'rgba(255,255,255,0.2)', padding: '1px 8px', borderRadius: '6px', fontWeight: 600 }}>
-                Group: <strong>{selectedStudent.group || 'Group Not Assigned'}</strong>
+              <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '6px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <Users size={12} />
+                <span>Group: <strong>{selectedStudent.displayGroup || selectedStudent.group || 'Group Not Assigned'}</strong></span>
               </span>
             </div>
           </div>

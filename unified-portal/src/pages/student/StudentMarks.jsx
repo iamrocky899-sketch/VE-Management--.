@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../state/AuthContext';
-import { ApiService } from '../../api/client';
+import { ApiService, resolveStudentGroup } from '../../api/client';
 import {
   Award, BookOpen, BarChart3, ArrowLeft, RefreshCw,
   Printer, CheckCircle2, AlertCircle, AlertTriangle,
-  TrendingUp, TrendingDown, School, ShieldCheck, User, Info
+  TrendingUp, TrendingDown, School, ShieldCheck, User, Info, Users
 } from 'lucide-react';
 
 export default function StudentMarks({ setActivePage }) {
@@ -66,7 +66,7 @@ export default function StudentMarks({ setActivePage }) {
   const studentClass = user?.class || '9';
   const studentSection = user?.section || 'N/A';
   const studentRoll = user?.rollNo || '1';
-  const studentGroup = user?.group || 'Group Not Assigned';
+  const studentGroup = resolveStudentGroup(user);
 
   // Filter marks for selected exam (handling slight naming variations like 'Half Yearly' vs 'Half Yearly Examination')
   const currentExamMarks = useMemo(() => {
@@ -220,8 +220,9 @@ export default function StudentMarks({ setActivePage }) {
               <span>•</span>
               <span>Roll No <strong>{studentRoll}</strong></span>
               <span>•</span>
-              <span style={{ background: 'rgba(255,255,255,0.2)', padding: '1px 8px', borderRadius: '6px', fontWeight: 600 }}>
-                Group: <strong>{studentGroup}</strong>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255,255,255,0.22)', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                <Users size={12} />
+                <span>Group: <strong>{studentGroup}</strong></span>
               </span>
             </div>
           </div>

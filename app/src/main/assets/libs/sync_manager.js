@@ -16,7 +16,7 @@
   const MAX_RETRY_ATTEMPTS = 5;
   const BASE_BACKOFF_MS = 2000;
   const MAX_BACKOFF_MS = 60000;
-  const DEFAULT_DEBOUNCE_MS = 1500;
+  const DEFAULT_DEBOUNCE_MS = 50;
 
   const SyncManager = {
     isSyncing: false,
@@ -216,6 +216,18 @@
         return;
       }
 
+      const queue = this.getQueue();
+      const pendingItems = queue.filter(function(item) {
+        return item.status === 'PENDING' || (item.status === 'FAILED' && item.attemptCount < MAX_RETRY_ATTEMPTS);
+      });
+
+      if (!isManual && pendingItems.length === 0) {
+        // NO DATA CHANGE -> NO SYNC (Complies with Free-Plan zero write/read overhead)
+        this.notifyStatusChange('IDLE');
+        if (callback) callback({ status: 'IDLE', message: 'No pending changes to sync' });
+        return;
+      }
+
       if (!this.isOnline()) {
         this.notifyStatusChange('OFFLINE');
         if (callback) callback({ status: 'OFFLINE' });
@@ -347,8 +359,15 @@
         } else if (item.entity === 'Notices' && item.payload) {
           if (Array.isArray(item.payload)) batchPayload.notices = batchPayload.notices.concat(item.payload);
           else batchPayload.notices.push(item.payload);
+        } else if (item.entity === 'Timetable' && item.payload) {
+          batchPayload.timetable = item.payload;
         }
       });
+
+      // Assign deterministic syncId for the batch derived from sorted pending item syncIds
+      const sortedItemIds = itemIdsToProcess.slice().sort();
+      const batchSyncId = 'BATCH_' + (sortedItemIds.length > 0 ? sortedItemIds.join('_').substring(0, 100) : ('CLI_' + Date.now()));
+      batchPayload.syncId = batchSyncId;
 
       this.saveQueue(queue);
       const self = this;
@@ -508,6 +527,8 @@
               const dateStr = att.date || att.session_date;
               const sid = String(att.student_id || att.studentId || att.id || '');
               if (dateStr && sid) {
+                // Do not overwrite local data if this date has a pending sync
+                if (pendingEntityIds.has(`Attendance_ATT_${dateStr}`)) return;
                 if (!localAttendance[dateStr]) localAttendance[dateStr] = [];
                 const status = (att.status || 'PRESENT').toUpperCase();
                 if ((status === 'PRESENT' || status === 'LATE') && !localAttendance[dateStr].includes(sid)) {
@@ -572,7 +593,6 @@
           if (typeof global !== 'undefined' && typeof global.studyNotes !== 'undefined') global.studyNotes = localNotes;
           if (typeof window !== 'undefined') {
             window.studyNotes = localNotes;
-            if (typeof window.renderNotesUnits === 'function') window.renderNotesUnits();
           }
         }
 
@@ -582,17 +602,14 @@
             localStorage.setItem('itd3_timetable', JSON.stringify(cloudData.timetable));
             if (typeof window !== 'undefined') {
               window.timetable = cloudData.timetable;
-              if (typeof window.renderTimetablePage === 'function') window.renderTimetablePage();
             }
           }
         }
 
-        // 6. Refresh UI if in browser
-        if (typeof global.refreshAllUI === 'function') global.refreshAllUI();
-        if (typeof global.renderRegister === 'function') global.renderRegister();
-        if (typeof global.renderCalendarView === 'function') global.renderCalendarView();
-        if (typeof global.renderTimetablePage === 'function') global.renderTimetablePage();
-        if (typeof global.renderNotesUnits === 'function') global.renderNotesUnits();
+        // 6. Refresh active UI only
+        if (typeof global.refreshAllUI === 'function') {
+          global.refreshAllUI();
+        }
       } catch (e) {
         console.error("[SyncManager] Error merging cloud data:", e);
       }
@@ -757,9 +774,15 @@
      * Handles network reconnection.
      */
     onNetworkAvailable: function() {
-      console.log("[SyncManager] Internet connection restored. Triggering auto sync...");
+      console.log("[SyncManager] Internet connection restored.");
       this.notifyStatusChange('CONNECTED');
-      this.triggerAutoSync(false);
+      const queue = this.getQueue();
+      const hasPending = queue.some(function(item) {
+        return item.status === 'PENDING' || (item.status === 'FAILED' && item.attemptCount < MAX_RETRY_ATTEMPTS);
+      });
+      if (hasPending) {
+        this.triggerAutoSync(false);
+      }
     },
 
     /**
@@ -774,23 +797,9 @@
         window.addEventListener('offline', function() {
           self.notifyStatusChange('OFFLINE');
         });
-        let lastFocusSyncTime = 0;
-        window.addEventListener('focus', function() {
-          const now = Date.now();
-          // Throttle window focus syncs: maximum once every 60 seconds
-          if (self.isOnline() && (now - lastFocusSyncTime > 60000)) {
-            lastFocusSyncTime = now;
-            self.scheduleAutoSync(1500);
-          }
-        });
       }
 
       this.notifyStatusChange();
-
-      // Initial auto sync on app launch if online
-      if (this.isOnline()) {
-        this.scheduleAutoSync(1000);
-      }
     }
   };
 

@@ -19,6 +19,7 @@ import { DocumentsApi } from './api/documents.js';
 import { NoticesApi, ReportsApi, SettingsApi, CalendarApi, PracticalsApi } from './api/notices.js';
 import { SyncApi } from './api/sync.js';
 import { FilesApi } from './api/files.js';
+import { AcademicYearsApi } from './api/academic_years.js';
 
 export async function routeRequest(request, env, corsHeaders) {
   const url = new URL(request.url);
@@ -26,12 +27,20 @@ export async function routeRequest(request, env, corsHeaders) {
 
   // 1. Health Ping
   if (pathname === '/api/ping' || pathname === '/ping' || url.searchParams.get('action') === 'ping') {
+    let activeYear = '2026-2027';
+    try {
+      const activeRow = await env.DB.prepare("SELECT year_name FROM academic_years WHERE is_current = 1 LIMIT 1").first();
+      if (activeRow && activeRow.year_name) activeYear = activeRow.year_name;
+    } catch (e) {}
+
     return successResponse({
       status: 'ONLINE',
       runtime: 'Cloudflare Workers (Edge Staging)',
       schoolId: env.SCHOOL_ID || 'GAMERI-HSS-001',
       schoolName: env.SCHOOL_NAME || 'Gameri Higher Secondary School, Gamiri',
       environment: env.ENVIRONMENT || 'production',
+      activeAcademicYear: activeYear,
+      currentYear: activeYear,
       version: '6.0-CF-PROD'
     }, 'ping', 200, corsHeaders);
   }
@@ -81,7 +90,7 @@ export async function routeRequest(request, env, corsHeaders) {
 
   // Support Admin API Key authentication for Android SyncManager
   const apiKey = payload.apiKey || request.headers.get('X-Admin-Key') || url.searchParams.get('apiKey');
-  const isKeyValid = apiKey && (apiKey === 'GHSS_ADMIN_SECURE_KEY_2026' || (env.ADMIN_API_KEY && apiKey === env.ADMIN_API_KEY));
+  const isKeyValid = apiKey && env.ADMIN_API_KEY && apiKey === env.ADMIN_API_KEY;
   if (!session && isKeyValid) {
     session = {
       userId: 'SYSTEM_ADMIN_SYNC',
@@ -106,8 +115,35 @@ export async function routeRequest(request, env, corsHeaders) {
 
     // Academic Master Data
     case 'get_academic_years':
-      const { results: ayResults } = await env.DB.prepare(`SELECT * FROM academic_years ORDER BY is_current DESC, start_date DESC`).all();
-      return successResponse({ academicYears: ayResults || [] }, 'get_academic_years', 200, corsHeaders);
+      return AcademicYearsApi.getAcademicYears(env, session, payload, corsHeaders);
+
+    case 'get_current_academic_year':
+    case 'current_academic_year':
+      return AcademicYearsApi.getCurrentAcademicYear(env, session, payload, corsHeaders);
+
+    case 'save_academic_year':
+    case 'create_academic_year':
+    case 'update_academic_year':
+      return AcademicYearsApi.saveAcademicYear(env, session, payload, corsHeaders);
+
+    case 'set_active_academic_year':
+    case 'activate_academic_year':
+      return AcademicYearsApi.setActiveAcademicYear(env, session, payload, corsHeaders);
+
+    case 'close_academic_year':
+      return AcademicYearsApi.closeAcademicYear(env, session, payload, corsHeaders);
+
+    case 'archive_academic_year':
+      return AcademicYearsApi.archiveAcademicYear(env, session, payload, corsHeaders);
+
+    // Student Promotions
+    case 'get_promotion_candidates':
+    case 'promotion_candidates':
+      return StudentsApi.getPromotionCandidates(env, session, payload, corsHeaders);
+
+    case 'promote_students':
+    case 'promote_student':
+      return StudentsApi.promoteStudents(env, session, payload, corsHeaders);
 
     case 'get_classes':
       const { results: clsResults } = await env.DB.prepare(`SELECT * FROM classes ORDER BY grade_level ASC`).all();
@@ -132,6 +168,10 @@ export async function routeRequest(request, env, corsHeaders) {
     case 'get_student_history':
     case 'student_history':
       const histStuId = payload.studentId || session.userId;
+      const canAccessHist = await Security.canAccessStudent(env.DB, session, histStuId);
+      if (!canAccessHist) {
+        return errorResponse('UNAUTHORIZED', 'Access denied to student history', 403, 'get_student_history', corsHeaders);
+      }
       const { results: histResults } = await env.DB.prepare(`SELECT * FROM enrollments WHERE student_id = ? ORDER BY academic_year DESC`).bind(histStuId).all();
       return successResponse({ history: histResults || [] }, 'get_student_history', 200, corsHeaders);
 

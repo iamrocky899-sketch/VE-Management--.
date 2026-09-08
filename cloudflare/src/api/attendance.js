@@ -18,11 +18,16 @@ export const AttendanceApi = {
     const sectionParam = rawSection ? normalizeSection(classParam, rawSection) : null;
     const dateParam = payload.date ? String(payload.date) : null;
     const studentIdParam = payload.studentId ? String(payload.studentId) : null;
+    const academicYear = payload.academicYear || payload.academic_year || null;
 
     let query = `SELECT a.*, s.student_name, s.roll_no FROM attendance a
                  JOIN students s ON a.student_id = s.student_id WHERE 1=1`;
     const params = [];
 
+    if (academicYear) {
+      query += ` AND a.academic_year = ?`;
+      params.push(academicYear);
+    }
     if (classParam) {
       query += ` AND a.class = ?`;
       params.push(classParam);
@@ -126,31 +131,39 @@ export const AttendanceApi = {
         total_students = MAX(excluded.total_students, attendance_sessions.total_students),
         present_count = excluded.present_count,
         absent_count = excluded.absent_count,
-        updated_at = datetime('now')`
+        updated_at = datetime('now')
+      WHERE attendance_sessions.present_count IS NOT excluded.present_count
+         OR attendance_sessions.absent_count IS NOT excluded.absent_count
+         OR attendance_sessions.total_students < excluded.total_students`
     ).bind(
       sessionId, env.SCHOOL_ID || 'GAMERI-HSS-001', academicYear,
       dateParam, classParam, sectionParam, totalStudents, presentCount, absentCount
     ).run();
 
-    // Insert/update individual attendance records
+    // Insert/update individual attendance records with change detection guard
+    const attStatements = [];
     for (const r of records) {
       const stuId = r.studentId || r.student_id;
       if (!stuId) continue;
       const stuStatus = String(r.status || 'PRESENT').toUpperCase();
       const attId = `ATT_${dateParam}_${stuId}_${periodParam}`;
-      await env.DB.prepare(
+      attStatements.push(env.DB.prepare(
         `INSERT INTO attendance (
           attendance_id, school_id, student_id, academic_year, session_id, date,
           class, section, subject, component, period, teacher_id, status, source, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PORTAL', datetime('now'))
-        ON CONFLICT(attendance_id) DO UPDATE SET
+        ON CONFLICT(student_id, date, subject, component, period) DO UPDATE SET
           status = excluded.status,
-          updated_at = datetime('now')`
+          updated_at = datetime('now')
+        WHERE attendance.status IS NOT excluded.status`
       ).bind(
         attId, env.SCHOOL_ID || 'GAMERI-HSS-001', stuId, academicYear,
         sessionId, dateParam, classParam, sectionParam, subjectParam, componentParam, periodParam,
         session?.userId || null, stuStatus
-      ).run();
+      ));
+    }
+    if (attStatements.length > 0) {
+      await env.DB.batch(attStatements);
     }
 
     return successResponse({

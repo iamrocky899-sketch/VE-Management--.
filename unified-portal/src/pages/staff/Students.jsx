@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../state/AuthContext';
-import { sendApiRequest } from '../../api/client';
+import { sendApiRequest, resolveStudentGroup } from '../../api/client';
 import {
   Users,
   Search,
@@ -139,13 +139,16 @@ export default function Students({ onNavigate }) {
 
   // 8. Promotion Modal
   const [isPromotionModalOpen, setIsPromotionModalOpen] = useState(false);
-  const [promotionSourceYear, setPromotionSourceYear] = useState('2025-2026');
-  const [promotionTargetYear, setPromotionTargetYear] = useState('2026-2027');
+  const [availableYears, setAvailableYears] = useState([]);
+  const [promotionSourceYear, setPromotionSourceYear] = useState('2026-2027');
+  const [promotionTargetYear, setPromotionTargetYear] = useState('2027-2028');
   const [promotionSourceClass, setPromotionSourceClass] = useState('9');
   const [promotionTargetClass, setPromotionTargetClass] = useState('10');
   const [promotionList, setPromotionList] = useState([]);
+  const [promotionSelectedIds, setPromotionSelectedIds] = useState(new Set());
   const [promotionLoading, setPromotionLoading] = useState(false);
   const [promotionError, setPromotionError] = useState(null);
+  const [isPromotionConfirmOpen, setIsPromotionConfirmOpen] = useState(false);
 
   // 9. Academic History Modal
   const [historyStudent, setHistoryStudent] = useState(null);
@@ -717,31 +720,99 @@ export default function Students({ onNavigate }) {
   };
 
   // Promotion Wizard Handlers
-  const handleOpenPromotionWizard = () => {
-    setPromotionSourceClass('9');
-    setPromotionTargetClass('10');
-    setPromotionSourceYear('2025-2026');
-    setPromotionTargetYear('2026-2027');
-    loadPromotionSourceStudents('9');
+  const handleOpenPromotionWizard = async () => {
     setIsPromotionModalOpen(true);
+    setPromotionLoading(true);
+    setPromotionError(null);
+    try {
+      const res = await sendApiRequest('get_academic_years');
+      if (res && res.success && res.data?.academicYears) {
+        const years = res.data.academicYears;
+        setAvailableYears(years);
+        const activeY = res.data.activeYear || '2026-2027';
+        setPromotionSourceYear(activeY);
+        const nextYears = years.filter(y => y.yearName !== activeY && y.status !== 'CLOSED' && y.status !== 'ARCHIVED');
+        const nextY = nextYears.length > 0 ? nextYears[0].yearName : (
+          (parseInt(activeY.split('-')[0]) + 1) + '-' + (parseInt(activeY.split('-')[1]) + 1)
+        );
+        setPromotionTargetYear(nextY);
+        setPromotionSourceClass('9');
+        setPromotionTargetClass('10');
+        await loadPromotionCandidates('9', activeY, nextY);
+      }
+    } catch (e) {
+      setPromotionError('Failed to load academic sessions');
+    } finally {
+      setPromotionLoading(false);
+    }
   };
 
-  const loadPromotionSourceStudents = (cls) => {
-    const classStudents = students.filter((s) => String(s.class) === String(cls));
-    setPromotionList(
-      classStudents.map((s, idx) => ({
-        studentId: s.studentId,
-        studentName: s.studentName || s.name,
-        sourceClass: cls,
-        targetClass: cls === '9' ? '10' : cls === '10' ? '11' : cls === '11' ? '12' : 'COMPLETED',
-        decision: cls === '12' ? 'COMPLETED' : 'PROMOTED',
-        newRollNo: String(idx + 1),
-        targetSection: s.section || 'A'
-      }))
-    );
+  const loadPromotionCandidates = async (cls, srcY, tgtY) => {
+    setPromotionLoading(true);
+    setPromotionError(null);
+    const sYear = srcY || promotionSourceYear;
+    const tYear = tgtY || promotionTargetYear;
+    const sClass = cls || promotionSourceClass;
+
+    try {
+      const res = await sendApiRequest('get_promotion_candidates', {
+        sourceAcademicYear: sYear,
+        sourceClass: sClass,
+        targetAcademicYear: tYear
+      });
+      if (res && res.success && res.data?.candidates) {
+        const cands = res.data.candidates;
+        setPromotionList(cands.map(c => ({
+          studentId: c.studentId,
+          studentName: c.studentName,
+          sourceClass: c.sourceClass,
+          targetClass: c.suggestedTargetClass,
+          decision: c.defaultDecision,
+          newRollNo: c.suggestedRollNo,
+          targetSection: c.suggestedTargetSection || 'A',
+          alreadyPromoted: c.alreadyPromoted,
+          existingDecision: c.existingDecision
+        })));
+        // Select all eligible (unpromoted) students by default
+        const eligibleIds = new Set(cands.filter(c => !c.alreadyPromoted).map(c => c.studentId));
+        setPromotionSelectedIds(eligibleIds);
+        setPromotionTargetClass(res.data.defaultTargetClass || (sClass === '9' ? '10' : sClass === '10' ? '11' : sClass === '11' ? '12' : 'COMPLETED'));
+      } else {
+        setPromotionError(res?.error?.message || 'Unable to load candidates');
+      }
+    } catch (err) {
+      setPromotionError('Network error loading promotion candidates');
+    } finally {
+      setPromotionLoading(false);
+    }
+  };
+
+  const handlePrePromotionCheck = () => {
+    setPromotionError(null);
+    const selectedList = promotionList.filter(p => promotionSelectedIds.has(p.studentId));
+    if (selectedList.length === 0) {
+      setPromotionError('Please select at least one student to promote.');
+      return;
+    }
+
+    // Check duplicate roll numbers
+    const rollSet = new Set();
+    for (const p of selectedList) {
+      if (p.decision !== 'COMPLETED' && p.newRollNo) {
+        const rollKey = `${p.targetSection}_${p.newRollNo}`;
+        if (rollSet.has(rollKey)) {
+          setPromotionError(`Duplicate roll number "${p.newRollNo}" detected in section ${p.targetSection}. Each student must have a unique roll number.`);
+          return;
+        }
+        rollSet.add(rollKey);
+      }
+    }
+
+    setIsPromotionConfirmOpen(true);
   };
 
   const handleExecutePromotion = async () => {
+    const selectedList = promotionList.filter(p => promotionSelectedIds.has(p.studentId));
     setPromotionLoading(true);
     setPromotionError(null);
 
@@ -749,18 +820,21 @@ export default function Students({ onNavigate }) {
       const res = await sendApiRequest('promote_students', {
         sourceAcademicYear: promotionSourceYear,
         targetAcademicYear: promotionTargetYear,
-        promotions: promotionList
+        promotions: selectedList
       });
 
       if (res && res.success) {
-        showToast(`Promoted ${promotionList.length} students to Class ${promotionTargetClass}`);
+        showToast(`Successfully promoted ${selectedList.length} students to ${promotionTargetClass === 'COMPLETED' ? 'COMPLETED' : 'Class ' + promotionTargetClass}!`);
+        setIsPromotionConfirmOpen(false);
         setIsPromotionModalOpen(false);
         fetchStudents(true);
       } else {
         setPromotionError(res?.error?.message || 'Failed to execute promotions.');
+        setIsPromotionConfirmOpen(false);
       }
     } catch (err) {
       setPromotionError('Connection error processing promotions.');
+      setIsPromotionConfirmOpen(false);
     } finally {
       setPromotionLoading(false);
     }
@@ -1153,9 +1227,31 @@ export default function Students({ onNavigate }) {
                         </span>
                       </td>
                       <td style={{ padding: '12px 16px' }}>
-                        <div style={{ fontWeight: 700 }}>Class {s.className || s.class || '--'} ({s.section || 'N/A'})</div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                          {s.group ? `Group: ${s.group}` : 'Group Not Assigned'}
+                        <div style={{ fontWeight: 700, color: '#0f172a' }}>Class {s.className || s.class || '--'} ({s.section || 'N/A'})</div>
+                        <div style={{ marginTop: '4px' }}>
+                          {(() => {
+                            const groupName = resolveStudentGroup(s);
+                            const isAssigned = groupName && groupName !== 'Group Not Assigned';
+                            return (
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  background: isAssigned ? '#eff6ff' : '#f8fafc',
+                                  color: isAssigned ? '#1d4ed8' : '#64748b',
+                                  border: isAssigned ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700
+                                }}
+                              >
+                                <Users size={11} />
+                                <span>{isAssigned ? `Group: ${groupName}` : 'Group Not Assigned'}</span>
+                              </span>
+                            );
+                          })()}
                         </div>
                       </td>
                       <td style={{ padding: '12px 16px' }}>
@@ -1488,7 +1584,28 @@ export default function Students({ onNavigate }) {
                         <span>Admission No: <strong style={{ color: '#38bdf8' }}>{profileData.student.admissionNo || '--'}</strong></span>
                         <span>Class: <strong>{profileData.student.class} ({profileData.student.section || 'N/A'})</strong></span>
                         <span>Roll: <strong>#{profileData.student.rollNo || '--'}</strong></span>
-                        <span>Group: <strong style={{ color: '#38bdf8' }}>{profileData.student.group || 'Group Not Assigned'}</strong></span>
+                        {(() => {
+                          const modalGroup = resolveStudentGroup(profileData.student);
+                          const hasModalGroup = modalGroup && modalGroup !== 'Group Not Assigned';
+                          return (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                background: hasModalGroup ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+                                border: hasModalGroup ? '1px solid rgba(56, 189, 248, 0.5)' : '1px solid rgba(255, 255, 255, 0.2)',
+                                color: hasModalGroup ? '#38bdf8' : '#cbd5e1',
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                fontWeight: 700
+                              }}
+                            >
+                              <Users size={12} />
+                              <span>Group: <strong>{modalGroup}</strong></span>
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -1573,6 +1690,19 @@ export default function Students({ onNavigate }) {
                             Vocational Specialization
                           </div>
                         </div>
+
+                        <div style={{ background: '#eff6ff', border: '1px solid #dbeafe', borderRadius: '12px', padding: '16px' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#1e40af', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <Users size={13} />
+                            <span>STUDENT GROUP</span>
+                          </div>
+                          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1e3a8a', margin: '6px 0' }}>
+                            {resolveStudentGroup(profileData.student)}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#3b82f6' }}>
+                            Authoritative Cohort
+                          </div>
+                        </div>
                       </div>
 
                       {/* Quick Summary Grid */}
@@ -1585,7 +1715,7 @@ export default function Students({ onNavigate }) {
                           <div><span style={{ color: '#64748b' }}>Mother's Name:</span> <strong>{profileData.student.motherName || '--'}</strong></div>
                           <div><span style={{ color: '#64748b' }}>Contact Mobile:</span> <strong>{profileData.student.mobile || '--'}</strong></div>
                           <div><span style={{ color: '#64748b' }}>Village/Town:</span> <strong>{profileData.student.village || '--'}</strong></div>
-                          <div><span style={{ color: '#64748b' }}>Assigned Group:</span> <strong>{profileData.student.group || 'Group Not Assigned'}</strong></div>
+                          <div><span style={{ color: '#64748b' }}>Assigned Group:</span> <strong>{resolveStudentGroup(profileData.student)}</strong></div>
                         </div>
                       </div>
                     </div>
@@ -1709,7 +1839,7 @@ export default function Students({ onNavigate }) {
                         <div><span style={{ color: '#64748b' }}>Assigned Class:</span> <strong>Class {profileData.currentEnrollment.class}</strong></div>
                         <div><span style={{ color: '#64748b' }}>Assigned Section:</span> <strong>Section {profileData.currentEnrollment.section || 'A'}</strong></div>
                         <div><span style={{ color: '#64748b' }}>Assigned Roll:</span> <strong>#{profileData.currentEnrollment.rollNo || '--'}</strong></div>
-                        <div><span style={{ color: '#64748b' }}>Assigned Group:</span> <strong>{profileData.student.group || 'Group Not Assigned'}</strong></div>
+                        <div><span style={{ color: '#64748b' }}>Assigned Group:</span> <strong>{resolveStudentGroup(profileData.student)}</strong></div>
                         <div><span style={{ color: '#64748b' }}>Enrollment Status:</span> {renderStatusBadge(profileData.currentEnrollment.status)}</div>
                         <div><span style={{ color: '#64748b' }}>Enrolled Stream:</span> <strong>{profileData.student.stream || 'IT/ITeS'}</strong></div>
                       </div>
@@ -2545,16 +2675,53 @@ export default function Students({ onNavigate }) {
               </div>
             )}
 
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Source Academic Session</label>
+                <select
+                  value={promotionSourceYear}
+                  onChange={(e) => {
+                    setPromotionSourceYear(e.target.value);
+                    loadPromotionCandidates(promotionSourceClass, e.target.value, promotionTargetYear);
+                  }}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                >
+                  {availableYears.length > 0 ? (
+                    availableYears.map(y => <option key={y.yearName} value={y.yearName}>{y.yearName} {y.isCurrent ? '(Active)' : ''}</option>)
+                  ) : (
+                    <option value={promotionSourceYear}>{promotionSourceYear}</option>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Target Academic Session</label>
+                <select
+                  value={promotionTargetYear}
+                  onChange={(e) => {
+                    setPromotionTargetYear(e.target.value);
+                    loadPromotionCandidates(promotionSourceClass, promotionSourceYear, e.target.value);
+                  }}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                >
+                  {availableYears.length > 0 ? (
+                    availableYears.map(y => <option key={y.yearName} value={y.yearName}>{y.yearName} {y.isCurrent ? '(Active)' : ''}</option>)
+                  ) : (
+                    <option value={promotionTargetYear}>{promotionTargetYear}</option>
+                  )}
+                </select>
+              </div>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '12px', marginBottom: '16px', background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Source Session</label>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>From Class</label>
                 <select
                   value={promotionSourceClass}
                   onChange={(e) => {
-                    setPromotionSourceClass(e.target.value);
-                    const tgt = e.target.value === '9' ? '10' : e.target.value === '10' ? '11' : e.target.value === '11' ? '12' : 'COMPLETED';
-                    setPromotionTargetClass(tgt);
-                    loadPromotionSourceStudents(e.target.value);
+                    const cls = e.target.value;
+                    setPromotionSourceClass(cls);
+                    loadPromotionCandidates(cls, promotionSourceYear, promotionTargetYear);
                   }}
                   style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
                 >
@@ -2570,55 +2737,102 @@ export default function Students({ onNavigate }) {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Target Promotion</label>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>Target Action</label>
                 <div style={{ padding: '6px 10px', borderRadius: '6px', background: '#ecfdf5', color: '#065f46', fontWeight: 800, fontSize: '0.85rem', textAlign: 'center' }}>
-                  {promotionTargetClass === 'COMPLETED' ? 'COMPLETED' : `Class ${promotionTargetClass}`} ({promotionTargetYear})
+                  {promotionSourceClass === '12' ? 'COMPLETED / GRADUATE' : `Class ${promotionTargetClass}`} ({promotionTargetYear})
                 </div>
               </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>
+                Eligible Students ({promotionSelectedIds.size} of {promotionList.length} selected)
+              </span>
+              <button
+                type="button"
+                className="btn-outline"
+                style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                onClick={() => {
+                  const unpromoted = promotionList.filter(p => !p.alreadyPromoted).map(p => p.studentId);
+                  if (promotionSelectedIds.size === unpromoted.length) {
+                    setPromotionSelectedIds(new Set());
+                  } else {
+                    setPromotionSelectedIds(new Set(unpromoted));
+                  }
+                }}
+              >
+                {promotionSelectedIds.size === promotionList.filter(p => !p.alreadyPromoted).length ? 'Deselect All' : 'Select All Eligible'}
+              </button>
             </div>
 
             <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '12px', marginBottom: '20px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
+                    <th style={{ padding: '8px 12px', width: '36px' }}></th>
                     <th style={{ padding: '8px 12px' }}>Student</th>
                     <th style={{ padding: '8px 12px', width: '140px' }}>Decision</th>
                     <th style={{ padding: '8px 12px', width: '90px' }}>New Roll</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {promotionList.map((p, idx) => (
-                    <tr key={p.studentId} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '8px 12px', fontWeight: 600 }}>{p.studentName}</td>
-                      <td style={{ padding: '8px 12px' }}>
-                        <select
-                          value={p.decision}
-                          onChange={(e) => {
-                            const updated = [...promotionList];
-                            updated[idx].decision = e.target.value;
-                            setPromotionList(updated);
-                          }}
-                          style={{ width: '100%', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
-                        >
-                          <option value="PROMOTED">Promote</option>
-                          <option value="NOT_PROMOTED">Retain (Not Promoted)</option>
-                          {promotionSourceClass === '12' && <option value="COMPLETED">Completed</option>}
-                        </select>
-                      </td>
-                      <td style={{ padding: '8px 12px' }}>
-                        <input
-                          type="text"
-                          value={p.newRollNo}
-                          onChange={(e) => {
-                            const updated = [...promotionList];
-                            updated[idx].newRollNo = e.target.value;
-                            setPromotionList(updated);
-                          }}
-                          style={{ width: '50px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', textAlign: 'center' }}
-                        />
-                      </td>
-                    </tr>
-                  ))}
+                  {promotionList.map((p, idx) => {
+                    const isSelected = promotionSelectedIds.has(p.studentId);
+                    return (
+                      <tr key={p.studentId} style={{ borderBottom: '1px solid #f1f5f9', opacity: p.alreadyPromoted ? 0.6 : 1 }}>
+                        <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={p.alreadyPromoted}
+                            onChange={(e) => {
+                              const updated = new Set(promotionSelectedIds);
+                              if (e.target.checked) updated.add(p.studentId);
+                              else updated.delete(p.studentId);
+                              setPromotionSelectedIds(updated);
+                            }}
+                          />
+                        </td>
+                        <td style={{ padding: '8px 12px', fontWeight: 600 }}>
+                          <div>{p.studentName}</div>
+                          {p.alreadyPromoted && (
+                            <span style={{ fontSize: '0.7rem', color: '#15803d', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>
+                              ✓ Already Promoted
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '8px 12px' }}>
+                          <select
+                            value={p.decision}
+                            disabled={p.alreadyPromoted}
+                            onChange={(e) => {
+                              const updated = [...promotionList];
+                              updated[idx].decision = e.target.value;
+                              setPromotionList(updated);
+                            }}
+                            style={{ width: '100%', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
+                          >
+                            <option value="PROMOTED">Promote</option>
+                            <option value="NOT_PROMOTED">Retain</option>
+                            {promotionSourceClass === '12' && <option value="COMPLETED">Completed</option>}
+                          </select>
+                        </td>
+                        <td style={{ padding: '8px 12px' }}>
+                          <input
+                            type="text"
+                            value={p.newRollNo}
+                            disabled={p.alreadyPromoted || p.decision === 'COMPLETED'}
+                            onChange={(e) => {
+                              const updated = [...promotionList];
+                              updated[idx].newRollNo = e.target.value;
+                              setPromotionList(updated);
+                            }}
+                            style={{ width: '50px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', textAlign: 'center' }}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -2635,10 +2849,55 @@ export default function Students({ onNavigate }) {
                 type="button"
                 className="btn-primary"
                 style={{ background: '#059669', borderColor: '#059669' }}
+                onClick={handlePrePromotionCheck}
+                disabled={promotionLoading || promotionSelectedIds.size === 0}
+              >
+                {promotionLoading ? 'Loading Candidates...' : `Review & Promote (${promotionSelectedIds.size})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Promotion Confirmation Summary Modal */}
+      {isPromotionConfirmOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content card" style={{ maxWidth: '480px', padding: '28px', borderRadius: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ background: '#ecfdf5', padding: '10px', borderRadius: '12px' }}>
+                <CheckCircle2 size={24} color="#059669" />
+              </div>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>
+                Confirm Student Promotion
+              </h3>
+            </div>
+
+            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', marginBottom: '18px', border: '1px solid #e2e8f0', fontSize: '0.88rem', lineHeight: '1.6' }}>
+              <div><strong>Students Selected:</strong> {promotionSelectedIds.size} student(s)</div>
+              <div><strong>From Class:</strong> Class {promotionSourceClass} ({promotionSourceYear})</div>
+              <div><strong>To Target:</strong> {promotionSourceClass === '12' ? 'COMPLETED / GRADUATED' : `Class ${promotionTargetClass}`} ({promotionTargetYear})</div>
+              <div style={{ marginTop: '8px', fontSize: '0.8rem', color: '#059669' }}>
+                ✓ Zero data loss: Previous academic history, attendance, and exam marks remain intact.
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => setIsPromotionConfirmOpen(false)}
+                disabled={promotionLoading}
+              >
+                Back to Edit
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ background: '#059669', borderColor: '#059669' }}
                 onClick={handleExecutePromotion}
                 disabled={promotionLoading}
               >
-                {promotionLoading ? 'Processing Promotion...' : 'Execute Promotion'}
+                {promotionLoading ? 'Promoting Students...' : 'Execute Promotion'}
               </button>
             </div>
           </div>

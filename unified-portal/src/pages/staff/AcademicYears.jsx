@@ -39,6 +39,12 @@ export default function AcademicYears({ onNavigate }) {
   const [confirmModalYear, setConfirmModalYear] = useState(null);
   const [activateLoading, setActivateLoading] = useState(false);
 
+  // Close & Archive Confirmation Modals
+  const [closeModalYear, setCloseModalYear] = useState(null);
+  const [closeLoading, setCloseLoading] = useState(false);
+  const [archiveModalYear, setArchiveModalYear] = useState(null);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+
   const fetchAcademicYears = async (isManual = false) => {
     if (isManual) setRefreshing(true);
     else setLoading(true);
@@ -129,6 +135,48 @@ export default function AcademicYears({ onNavigate }) {
       showToast('Error activating academic year');
     } finally {
       setActivateLoading(false);
+    }
+  };
+
+  const handleCloseYear = async (year) => {
+    setCloseLoading(true);
+    try {
+      const res = await sendApiRequest('close_academic_year', {
+        yearId: year.yearId,
+        yearName: year.yearName
+      });
+      if (res && res.success) {
+        showToast(`Academic year ${year.yearName} closed successfully`);
+        setCloseModalYear(null);
+        fetchAcademicYears(true);
+      } else {
+        showToast(res?.error?.message || 'Failed to close academic year');
+      }
+    } catch (err) {
+      showToast('Error closing academic year');
+    } finally {
+      setCloseLoading(false);
+    }
+  };
+
+  const handleArchiveYear = async (year) => {
+    setArchiveLoading(true);
+    try {
+      const res = await sendApiRequest('archive_academic_year', {
+        yearId: year.yearId,
+        yearName: year.yearName
+      });
+      if (res && res.success) {
+        showToast(`Academic year ${year.yearName} archived successfully`);
+        setArchiveModalYear(null);
+        fetchAcademicYears(true);
+      } else {
+        showToast(res?.error?.message || 'Failed to archive academic year');
+      }
+    } catch (err) {
+      showToast('Error archiving academic year');
+    } finally {
+      setArchiveLoading(false);
     }
   };
 
@@ -338,14 +386,40 @@ export default function AcademicYears({ onNavigate }) {
                 </div>
 
                 {!isCurrent && (isPrincipal || isAdmin) && (
-                  <button
-                    type="button"
-                    className="btn-outline"
-                    style={{ width: '100%', borderColor: '#1e3a8a', color: '#1e3a8a', marginTop: '12px' }}
-                    onClick={() => setConfirmModalYear(year)}
-                  >
-                    Set as Active Session
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '14px' }}>
+                    {year.status !== 'CLOSED' && (
+                      <button
+                        type="button"
+                        className="btn-outline"
+                        style={{ width: '100%', borderColor: '#1e3a8a', color: '#1e3a8a', fontWeight: 600 }}
+                        onClick={() => setConfirmModalYear(year)}
+                      >
+                        Set as Active Session
+                      </button>
+                    )}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      {year.status !== 'CLOSED' && (
+                        <button
+                          type="button"
+                          className="btn-outline"
+                          style={{ borderColor: '#f59e0b', color: '#d97706', fontSize: '0.8rem', padding: '6px' }}
+                          onClick={() => setCloseModalYear(year)}
+                        >
+                          Close Year
+                        </button>
+                      )}
+                      {year.status !== 'ARCHIVED' && (
+                        <button
+                          type="button"
+                          className="btn-outline"
+                          style={{ borderColor: '#94a3b8', color: '#64748b', fontSize: '0.8rem', padding: '6px' }}
+                          onClick={() => setArchiveModalYear(year)}
+                        >
+                          Archive Year
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             );
@@ -391,6 +465,88 @@ export default function AcademicYears({ onNavigate }) {
                 disabled={activateLoading}
               >
                 {activateLoading ? 'Activating...' : 'Confirm Activation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Close Year Modal */}
+      {closeModalYear && (
+        <div className="modal-overlay">
+          <div className="modal-content card" style={{ maxWidth: '480px', padding: '28px', borderRadius: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ background: '#fef3c7', padding: '10px', borderRadius: '12px' }}>
+                <AlertCircle size={24} color="#d97706" />
+              </div>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>
+                Close Academic Year {closeModalYear.yearName}?
+              </h3>
+            </div>
+
+            <p style={{ color: '#475569', fontSize: '0.9rem', lineHeight: '1.5', marginBottom: '20px' }}>
+              Closing an academic year marks its formal conclusion.
+              <br /><br />
+              <strong style={{ color: '#0f172a' }}>Zero Data Loss Guarantee:</strong> Closing this academic year does <em>not</em> delete any data. All student profiles, attendance registers, marks, exams, and documents will remain fully preserved and queryable.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => setCloseModalYear(null)}
+                disabled={closeLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ background: '#d97706', borderColor: '#d97706' }}
+                onClick={() => handleCloseYear(closeModalYear)}
+                disabled={closeLoading}
+              >
+                {closeLoading ? 'Closing...' : 'Confirm Close Year'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Archive Year Modal */}
+      {archiveModalYear && (
+        <div className="modal-overlay">
+          <div className="modal-content card" style={{ maxWidth: '480px', padding: '28px', borderRadius: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ background: '#f1f5f9', padding: '10px', borderRadius: '12px' }}>
+                <Clock size={24} color="#475569" />
+              </div>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>
+                Archive Academic Year {archiveModalYear.yearName}?
+              </h3>
+            </div>
+
+            <p style={{ color: '#475569', fontSize: '0.9rem', lineHeight: '1.5', marginBottom: '20px' }}>
+              Archiving moves this session to read-only historical storage. All past marks, attendance records, and student documents remain securely accessible for transcript and verification queries.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => setArchiveModalYear(null)}
+                disabled={archiveLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ background: '#475569', borderColor: '#475569' }}
+                onClick={() => handleArchiveYear(archiveModalYear)}
+                disabled={archiveLoading}
+              >
+                {archiveLoading ? 'Archiving...' : 'Confirm Archive'}
               </button>
             </div>
           </div>

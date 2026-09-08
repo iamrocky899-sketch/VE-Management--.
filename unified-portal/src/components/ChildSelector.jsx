@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../state/AuthContext';
 import { Users, GraduationCap, CheckCircle2 } from 'lucide-react';
+import { resolveStudentGroup, normalizeStudent } from '../api/client';
 
 export default function ChildSelector() {
   const { user, selectedChildId, switchChild, isParent } = useAuth();
@@ -11,14 +12,20 @@ export default function ChildSelector() {
   }
 
   const rawChildren = user.children;
-  const children = rawChildren.map(c => ({
-    studentId: c.student_id || c.studentId || c.id,
-    studentName: c.student_name || c.studentName || c.name || 'Student',
-    class: c.class || '10',
-    section: c.section || 'N/A',
-    rollNo: c.roll_no || c.rollNo || '-',
-    group: c.group || null
-  }));
+  const children = rawChildren.map(c => {
+    const norm = normalizeStudent(c);
+    const grp = resolveStudentGroup(norm);
+    return {
+      ...norm,
+      studentId: norm.studentId || norm.student_id || norm.id,
+      studentName: norm.studentName || norm.name || 'Student',
+      class: norm.class || norm.className || '10',
+      section: norm.section || 'N/A',
+      rollNo: norm.rollNo || norm.roll_no || norm.roll || '-',
+      group: grp !== 'Group Not Assigned' ? grp : null,
+      displayGroup: grp
+    };
+  });
 
   // Single-child family: show clean compact identity summary
   if (children.length === 1) {
@@ -57,7 +64,10 @@ export default function ChildSelector() {
               <span>•</span>
               <span>Roll No: {onlyChild.rollNo}</span>
               <span>•</span>
-              <span>Group: <strong>{onlyChild.group || 'Group Not Assigned'}</strong></span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                <Users size={12} />
+                <span>Group: <strong>{onlyChild.displayGroup || onlyChild.group || 'Group Not Assigned'}</strong></span>
+              </span>
             </div>
           </div>
         </div>
@@ -143,7 +153,10 @@ export default function ChildSelector() {
                   <div style={{ fontSize: '0.72rem', opacity: isSelected ? 0.9 : 0.65, display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
                     <span>Class {child.class} • Sec {child.section || 'N/A'} • Roll {child.rollNo}</span>
                     <span>•</span>
-                    <span>Group: <strong>{child.group || 'Group Not Assigned'}</strong></span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      <Users size={11} />
+                      <span>Group: <strong>{child.displayGroup || child.group || 'Group Not Assigned'}</strong></span>
+                    </span>
                   </div>
                 </div>
               </div>

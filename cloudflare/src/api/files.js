@@ -42,11 +42,6 @@ export const FilesApi = {
     if (!session || !session.role) return false;
     const role = session.role.toUpperCase();
 
-    // Admins and Principals have unrestricted read/write within the school tenant
-    if (Security.isAdminOrPrincipal(session)) {
-      return true;
-    }
-
     const sanitized = sanitizeObjectKey(objectKey);
     if (!sanitized) return false;
 
@@ -61,9 +56,14 @@ export const FilesApi = {
     const subId = parts[2] || '';
 
     // Enforce multi-tenant boundary
-    const expectedSchoolId = env.SCHOOL_ID || 'GAMERI-HSS-001';
+    const expectedSchoolId = session.schoolId || env.SCHOOL_ID || 'GAMERI-HSS-001';
     if (schoolId !== expectedSchoolId) {
       return false;
+    }
+
+    // Admins and Principals have unrestricted read/write within the school tenant
+    if (Security.isAdminOrPrincipal(session)) {
+      return true;
     }
 
     // Write permissions: only Teachers and Admins can create/delete official files
@@ -155,7 +155,8 @@ export const FilesApi = {
         downloadUrl: `/api/v1/files/download?key=${encodeURIComponent(result.key)}`
       }, 'file_upload', 200, corsHeaders);
     } catch (err) {
-      return errorResponse('STORAGE_ERROR', `Storage upload failed: ${err.message}`, 500, 'file_upload', corsHeaders);
+      console.error('[VE-API] Storage upload error:', err);
+      return errorResponse('STORAGE_ERROR', 'File upload failed. Please try again later.', 500, 'file_upload', corsHeaders);
     }
   },
 
@@ -210,7 +211,8 @@ export const FilesApi = {
         fileData: base64Data
       }, 'file_download', 200, corsHeaders);
     } catch (err) {
-      return errorResponse('STORAGE_ERROR', `Storage download failed: ${err.message}`, 500, 'file_download', corsHeaders);
+      console.error('[VE-API] Storage download error:', err);
+      return errorResponse('STORAGE_ERROR', 'File download failed. Please try again later.', 500, 'file_download', corsHeaders);
     }
   },
 
@@ -236,7 +238,8 @@ export const FilesApi = {
       const meta = await B2StorageService.headObject(env, key);
       return successResponse({ metadata: meta }, 'file_head', 200, corsHeaders);
     } catch (err) {
-      return errorResponse('STORAGE_ERROR', `Storage metadata check failed: ${err.message}`, 500, 'file_head', corsHeaders);
+      console.error('[VE-API] Storage metadata error:', err);
+      return errorResponse('STORAGE_ERROR', 'File metadata check failed. Please try again later.', 500, 'file_head', corsHeaders);
     }
   },
 
@@ -262,7 +265,8 @@ export const FilesApi = {
       const result = await B2StorageService.deleteObject(env, key);
       return successResponse({ deleted: true, fileKey: result.key }, 'file_delete', 200, corsHeaders);
     } catch (err) {
-      return errorResponse('STORAGE_ERROR', `Storage delete failed: ${err.message}`, 500, 'file_delete', corsHeaders);
+      console.error('[VE-API] Storage delete error:', err);
+      return errorResponse('STORAGE_ERROR', 'File deletion failed. Please try again later.', 500, 'file_delete', corsHeaders);
     }
   }
 };

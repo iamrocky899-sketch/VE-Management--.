@@ -12,6 +12,100 @@ export const API_BASE_URL =
 
 /**
  * CANONICAL STUDENT MODEL NORMALIZATION ENGINE
+/**
+ * 3-TIER GROUP RESOLUTION HIERARCHY (Phase 7 Parity)
+ * 1. Direct student group: s.group / s.student_group / s.group_name / s.studentGroup / s.assigned_group
+ * 2. Class custom group mapping: classGroupsSource / window.classGroups / localStorage(itd3_cg, classGroups)
+ * 3. Fallback: "Group Not Assigned"
+ * Never returns null, undefined, "[object Object]", or empty strings.
+ */
+export function resolveStudentGroup(s, customGroupSource = null) {
+  if (!s || typeof s !== 'object') return 'Group Not Assigned';
+
+  // Tier 1: Direct student group
+  const rawGroup = s.group ?? s.student_group ?? s.group_name ?? s.studentGroup ?? s.assigned_group ?? s.assignedGroup;
+  if (rawGroup !== undefined && rawGroup !== null) {
+    const trimmed = String(rawGroup).trim();
+    if (trimmed !== '' && trimmed !== 'null' && trimmed !== 'undefined' && trimmed !== '[object Object]' && trimmed !== 'Group Not Assigned') {
+      return trimmed;
+    }
+  }
+
+  // Tier 2: Class custom group mapping (classGroups / itd3_cg / settings)
+  try {
+    const studentId = String(s.studentId || s.student_id || s.id || '').trim();
+    const studentRoll = String(s.rollNo ?? s.roll_no ?? s.roll ?? '').trim();
+    const studentAdm = String(s.admissionNo ?? s.admission_no ?? '').trim();
+    const studentClass = String(s.class || s.className || '').trim();
+
+    let cgData = customGroupSource;
+    if (!cgData && typeof window !== 'undefined') {
+      if (window.classGroups && typeof window.classGroups === 'object') {
+        cgData = window.classGroups;
+      } else {
+        const rawCg = window.localStorage?.getItem('itd3_cg') ||
+                      window.localStorage?.getItem('classGroups') ||
+                      window.localStorage?.getItem('itd3_class_groups') ||
+                      window.sessionStorage?.getItem('itd3_cg');
+        if (rawCg) {
+          try { cgData = JSON.parse(rawCg); } catch (e) {}
+        }
+      }
+    }
+
+    if (cgData && typeof cgData === 'object') {
+      // 2a. Direct student ID / roll / admission key in map: { [id]: 'GroupName' }
+      if (studentId && typeof cgData[studentId] === 'string' && cgData[studentId].trim()) {
+        const mapped = cgData[studentId].trim();
+        if (mapped && mapped !== 'Group Not Assigned') return mapped;
+      }
+      if (studentAdm && typeof cgData[studentAdm] === 'string' && cgData[studentAdm].trim()) {
+        const mapped = cgData[studentAdm].trim();
+        if (mapped && mapped !== 'Group Not Assigned') return mapped;
+      }
+
+      // 2b. Canonical ClassGroups structure: { [cls]: { p: ..., g: [ { id, n, l, cl, m: [...] } ] } }
+      const classesToCheck = studentClass ? [studentClass, ...Object.keys(cgData).filter(c => c !== studentClass)] : Object.keys(cgData);
+      for (const clsKey of classesToCheck) {
+        const clsObj = cgData[clsKey];
+        if (!clsObj) continue;
+
+        const groupsArray = Array.isArray(clsObj.g) ? clsObj.g : (Array.isArray(clsObj) ? clsObj : (Array.isArray(clsObj.groups) ? clsObj.groups : []));
+        for (const g of groupsArray) {
+          if (!g || typeof g !== 'object') continue;
+          const groupName = g.n || g.name || g.groupName || g.group_name;
+          if (!groupName || String(groupName).trim() === '') continue;
+
+          // Check leader / co-leader
+          if ((studentId && (String(g.l) === studentId || String(g.cl) === studentId)) ||
+              (studentRoll && (String(g.l) === studentRoll || String(g.cl) === studentRoll)) ||
+              (studentAdm && (String(g.l) === studentAdm || String(g.cl) === studentAdm))) {
+            return String(groupName).trim();
+          }
+
+          // Check members array
+          const members = Array.isArray(g.m) ? g.m : (Array.isArray(g.members) ? g.members : []);
+          for (const member of members) {
+            const mStr = String(member).trim();
+            if ((studentId && mStr === studentId) ||
+                (studentRoll && mStr === studentRoll) ||
+                (studentAdm && mStr === studentAdm)) {
+              return String(groupName).trim();
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    // Non-blocking fallback
+  }
+
+  // Tier 3: Fallback
+  return 'Group Not Assigned';
+}
+
+/**
+ * CANONICAL STUDENT MODEL NORMALIZATION ENGINE
  * Normalizes backend / D1 student records into the authoritative frontend student model once.
  * Preserves all legacy properties for 100% backward-compatibility across all views.
  */
@@ -27,9 +121,12 @@ export function normalizeStudent(s) {
     : ((s.roll_no !== undefined && s.roll_no !== null && String(s.roll_no).trim() !== '')
         ? String(s.roll_no)
         : (s.roll ? String(s.roll) : ''));
-  // Authoritative group mapping: only from authoritative fields, never fabricated or inferred
-  const rawGroup = s.group || s.student_group || s.group_name || s.studentGroup || s.assigned_group || s.assignedGroup;
-  const group = (rawGroup !== undefined && rawGroup !== null && String(rawGroup).trim() !== '' && String(rawGroup).trim() !== 'null' && String(rawGroup).trim() !== 'undefined' && String(rawGroup).trim() !== 'Group Not Assigned') ? String(rawGroup).trim() : null;
+
+  // 3-Tier Group Resolution Hierarchy (Phase 7 Parity)
+  const assignedGroup = resolveStudentGroup(s);
+  const group = assignedGroup !== 'Group Not Assigned' ? assignedGroup : null;
+  const displayGroup = assignedGroup;
+
   const fatherName = s.fatherName || s.father_name || '';
   const motherName = s.motherName || s.mother_name || '';
   const parentName = s.parentName || fatherName || motherName || s.guardian_name || 'Parent';
@@ -68,6 +165,8 @@ export function normalizeStudent(s) {
     group,
     student_group: group,
     group_name: group,
+    studentGroup: group,
+    displayGroup,
     fatherName,
     father_name: fatherName,
     motherName,
@@ -589,6 +688,7 @@ export const ApiService = {
           section: studentProfile?.section || null,
           rollNo: studentProfile?.roll_no || studentProfile?.rollNo || null,
           group: studentProfile?.group || null,
+          displayGroup: studentProfile?.displayGroup || studentProfile?.group || 'Group Not Assigned',
           schoolId: studentRes.data.schoolId || 'GAMERI-HSS-001',
           status: studentProfile?.status || 'Active'
         }
@@ -633,7 +733,11 @@ export const ApiService = {
         ApiService.getCalendar(token, bypassCache)
       ]);
 
-      const studentProfile = profRes?.data?.student || normalizeStudent({
+      const rawProf = profRes?.data?.student;
+      const studentProfile = rawProf ? normalizeStudent({
+        ...rawProf,
+        group: rawProf.group || session?.group || null
+      }) : normalizeStudent({
         studentId: studentId,
         studentName: session?.name || 'Student',
         class: session?.class || '10',

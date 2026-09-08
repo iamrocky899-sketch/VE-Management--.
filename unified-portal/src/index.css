@@ -2602,32 +2602,51 @@ button, input, select, textarea {
   height: 70px;
   background: #ffffff;
   border-bottom: 1px solid var(--slate-200);
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   padding: 0 24px;
+  padding-left: max(16px, env(safe-area-inset-left, 16px));
+  padding-right: max(16px, env(safe-area-inset-right, 16px));
   position: sticky;
   top: 0;
   z-index: 20;
+  gap: 12px;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.header-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-width: 0;
 }
 
 .header-title {
   font-family: var(--font-display);
-  font-size: 1.25rem;
+  font-size: clamp(1rem, 3.5vw, 1.25rem);
   font-weight: 700;
   color: var(--slate-900);
+  margin: 0;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header-right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 16px;
+  min-width: 0;
 }
 
 /* User Menu & Profile Dropdown */

@@ -10,6 +10,10 @@ import { hashPassword, generateSalt } from '../auth.js';
 export const StaffApi = {
   async getStaffProfile(env, session, payload, corsHeaders) {
     const staffId = payload.staffId || session.userId;
+    // H3: Only allow access to own profile, or Admin/Principal can view any staff
+    if (staffId !== session.userId && !Security.isAdminOrPrincipal(session)) {
+      return errorResponse('UNAUTHORIZED', 'Access denied to staff profile', 403, 'get_staff_profile', corsHeaders);
+    }
     const staff = await env.DB.prepare(`SELECT * FROM staff WHERE staff_id = ?`).bind(staffId).first();
     if (!staff) {
       return errorResponse('NOT_FOUND', 'Staff record not found', 404, 'get_staff_profile', corsHeaders);
@@ -19,6 +23,10 @@ export const StaffApi = {
 
   async getTeacherScope(env, session, payload, corsHeaders) {
     const staffId = payload.staffId || session.userId;
+    // H4: Only allow access to own scope, or Admin/Principal can view any teacher's scope
+    if (staffId !== session.userId && !Security.isAdminOrPrincipal(session)) {
+      return errorResponse('UNAUTHORIZED', 'Access denied to teacher scope', 403, 'get_teacher_workload', corsHeaders);
+    }
     const scope = await Security.getTeacherAcademicScope(env.DB, staffId, payload.academicYear || '2026-2027');
     return successResponse({ scope: scope }, 'get_teacher_workload', 200, corsHeaders);
   },

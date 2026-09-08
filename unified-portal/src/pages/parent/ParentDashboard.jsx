@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../state/AuthContext';
-import { ApiService } from '../../api/client';
+import { ApiService, resolveStudentGroup } from '../../api/client';
 import {
   Users, CheckCircle2, Award, BookOpen, Calendar,
   Bell, FileText, Activity, User, Phone, ArrowRight,
@@ -109,24 +109,57 @@ export default function ParentDashboard({ setActivePage }) {
   const upcomingCalendar = dashboardData?.upcomingCalendar || [];
 
   // Resolve active selected child summary safely
-  let activeChildSummary = childrenSummaries.find(
-    c => String(c.student?.studentId) === String(selectedChildId)
+  const activeChildSummary = childrenSummaries.find(
+    c => String(c.student?.studentId || c.student?.student_id || c.student?.id) === String(selectedChildId)
   );
 
-  if (!activeChildSummary && childrenSummaries.length > 0) {
-    activeChildSummary = childrenSummaries[0];
-  }
-
-  const selectedStudent = activeChildSummary?.student || effectiveChildren.find(
+  const matchedRawChild = effectiveChildren.find(
     c => String(c.studentId || c.student_id || c.id) === String(selectedChildId)
-  ) || effectiveChildren[0] || {
-    studentName: 'Child',
-    class: '9',
-    section: 'N/A',
-    rollNo: '1',
-    group: null,
-    studentId: 'STU_0'
+  ) || effectiveChildren[0];
+
+  // Fix stale data bug: ONLY use activeChildSummary?.student IF it matches selectedChildId!
+  // Otherwise, immediately use matchedRawChild from effectiveChildren
+  const rawSelected = (activeChildSummary && String(activeChildSummary.student?.studentId || activeChildSummary.student?.student_id || activeChildSummary.student?.id) === String(selectedChildId))
+    ? activeChildSummary.student
+    : (matchedRawChild || {});
+
+  const assignedGroup = resolveStudentGroup(rawSelected);
+  const selectedStudent = {
+    studentId: rawSelected.studentId || rawSelected.student_id || rawSelected.id || 'STU_0',
+    studentName: rawSelected.studentName || rawSelected.name || 'Child',
+    class: rawSelected.class || '9',
+    section: rawSelected.section || 'N/A',
+    rollNo: rawSelected.rollNo || rawSelected.roll_no || rawSelected.roll || '1',
+    group: assignedGroup !== 'Group Not Assigned' ? assignedGroup : null,
+    displayGroup: assignedGroup
   };
+
+  const availableChildren = childrenSummaries.length > 0
+    ? childrenSummaries.map(c => {
+        const s = c.student || c;
+        const sGrp = resolveStudentGroup(s);
+        return {
+          studentId: s.studentId || s.student_id || s.id,
+          studentName: s.studentName || s.name || 'Child',
+          class: s.class || '9',
+          section: s.section || 'N/A',
+          rollNo: s.rollNo || s.roll_no || s.roll || '--',
+          group: sGrp !== 'Group Not Assigned' ? sGrp : null,
+          displayGroup: sGrp
+        };
+      })
+    : effectiveChildren.map(c => {
+        const cGrp = resolveStudentGroup(c);
+        return {
+          studentId: c.studentId || c.student_id || c.id,
+          studentName: c.studentName || c.name || 'Child',
+          class: c.class || '9',
+          section: c.section || 'N/A',
+          rollNo: c.rollNo || c.roll_no || c.roll || '--',
+          group: cGrp !== 'Group Not Assigned' ? cGrp : null,
+          displayGroup: cGrp
+        };
+      });
 
   const attSummary = activeChildSummary?.attendanceSummary || {
     totalWorkingDays: 0,
@@ -248,7 +281,7 @@ export default function ParentDashboard({ setActivePage }) {
 
       {/* Multi-Child Selector / Identity Card */}
       <div style={{ marginBottom: '20px' }}>
-        {childrenSummaries.length === 0 ? (
+        {availableChildren.length === 0 && (
           <div className="card" style={{ padding: '20px', textAlign: 'center', borderRadius: '16px' }}>
             <AlertCircle size={32} color="#d97706" style={{ margin: '0 auto 8px auto' }} />
             <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>No Children Linked</h3>
@@ -256,74 +289,23 @@ export default function ParentDashboard({ setActivePage }) {
               Please contact the school office to register your children under mobile {parent.mobile}.
             </p>
           </div>
-        ) : childrenSummaries.length === 1 ? (
-          /* Single Child Prominent Card */
-          <div
-            className="card"
-            style={{
-              padding: '16px 20px',
-              borderRadius: '16px',
-              background: '#f8fafc',
-              border: '1.5px solid #e2e8f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '12px'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div
-                style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '12px',
-                  background: '#dcfce7',
-                  color: '#15803d',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 800,
-                  fontSize: '1.1rem'
-                }}
-              >
-                {selectedStudent.studentName ? selectedStudent.studentName.charAt(0) : 'S'}
-              </div>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#0f172a' }}>
-                  {selectedStudent.studentName}
-                </div>
-                <div style={{ fontSize: '0.8125rem', color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-                  <span>Class <strong>{selectedStudent.class}</strong> ({selectedStudent.section || 'N/A'})</span>
-                  <span>•</span>
-                  <span>Roll No <strong>{selectedStudent.rollNo}</strong></span>
-                  <span>•</span>
-                  <span>Group: <strong>{selectedStudent.group || 'Group Not Assigned'}</strong></span>
-                </div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803d', background: '#dcfce7', padding: '4px 10px', borderRadius: '8px' }}>
-                Active Student
-              </span>
-            </div>
-          </div>
-        ) : (
-          /* Multi-Child Switcher Grid */
-          <div className="card" style={{ padding: '16px', borderRadius: '16px' }}>
+        )}
+
+        {/* Multi-Child Switcher Grid (if >1 child) */}
+        {availableChildren.length > 1 && (
+          <div className="card" style={{ padding: '16px', borderRadius: '16px', marginBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', fontWeight: 700, color: '#1e293b' }}>
                 <Users size={16} color="#059669" />
-                <span>My Children ({childrenSummaries.length})</span>
+                <span>My Children ({availableChildren.length})</span>
               </div>
               <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                Click to switch child view
+                Click to switch active child view
               </span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
-              {childrenSummaries.map((childSummary) => {
-                const isSelected = String(childSummary.student?.studentId) === String(selectedStudent.studentId);
-                const stu = childSummary.student;
+              {availableChildren.map((stu) => {
+                const isSelected = String(stu.studentId) === String(selectedStudent.studentId);
 
                 return (
                   <button
@@ -350,10 +332,13 @@ export default function ParentDashboard({ setActivePage }) {
                       <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>
                         {stu.studentName}
                       </div>
-                      <div style={{ fontSize: '0.76rem', color: isSelected ? '#d1fae5' : '#64748b', display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
-                        <span>Class {stu.class}-{stu.section || 'N/A'} • Roll {stu.rollNo}</span>
+                      <div style={{ fontSize: '0.76rem', color: isSelected ? '#d1fae5' : '#64748b', display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center', marginTop: '3px' }}>
+                        <span>Class {stu.class}-{stu.section || 'N/A'} • Roll #{stu.rollNo}</span>
                         <span>•</span>
-                        <span>Group: {stu.group || 'Group Not Assigned'}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', background: isSelected ? 'rgba(255,255,255,0.2)' : '#e2e8f0', color: isSelected ? '#ffffff' : '#334155', padding: '1px 6px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700 }}>
+                          <Users size={10} style={{ marginRight: '1px' }} />
+                          Grp: {stu.displayGroup || stu.group || 'Group Not Assigned'}
+                        </span>
                       </div>
                     </div>
                     {isSelected && (
@@ -365,6 +350,94 @@ export default function ParentDashboard({ setActivePage }) {
             </div>
           </div>
         )}
+
+        {/* Authoritative Active Child & Student Group Showcase Banner */}
+        <div
+          className="card active-child-group-banner"
+          style={{
+            padding: '16px 20px',
+            borderRadius: '16px',
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+            border: '1px solid #bbf7d0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '14px',
+            boxShadow: '0 4px 15px rgba(21, 128, 61, 0.08)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div
+              style={{
+                width: '46px',
+                height: '46px',
+                borderRadius: '12px',
+                background: '#15803d',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 800,
+                fontSize: '1.15rem',
+                boxShadow: '0 4px 10px rgba(21, 128, 61, 0.25)'
+              }}
+            >
+              {selectedStudent.studentName ? selectedStudent.studentName.charAt(0) : 'S'}
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#15803d', background: 'rgba(21, 128, 61, 0.12)', padding: '2px 8px', borderRadius: '6px' }}>
+                  ACTIVE CHILD VIEW
+                </span>
+                <span style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 600 }}>
+                  Class {selectedStudent.class} ({selectedStudent.section || 'N/A'}) &bull; Roll #{selectedStudent.rollNo || '--'}
+                </span>
+              </div>
+              <div style={{ fontWeight: 800, fontSize: '1.15rem', color: '#0f172a', marginTop: '2px' }}>
+                {selectedStudent.studentName}
+              </div>
+            </div>
+          </div>
+
+          {/* Dedicated Student Group Card */}
+          <div
+            className="active-child-group-pill"
+            style={{
+              background: '#ffffff',
+              border: (selectedStudent.group && selectedStudent.group !== 'Group Not Assigned') ? '1.5px solid #86efac' : '1.5px solid #e2e8f0',
+              padding: '8px 16px',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              boxShadow: (selectedStudent.group && selectedStudent.group !== 'Group Not Assigned') ? '0 2px 6px rgba(21, 128, 61, 0.08)' : 'none'
+            }}
+          >
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: (selectedStudent.group && selectedStudent.group !== 'Group Not Assigned') ? '#dcfce7' : '#f1f5f9',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: (selectedStudent.group && selectedStudent.group !== 'Group Not Assigned') ? '#15803d' : '#64748b'
+              }}
+            >
+              <Users size={16} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: (selectedStudent.group && selectedStudent.group !== 'Group Not Assigned') ? '#166534' : '#64748b' }}>
+                Student Group
+              </div>
+              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: (selectedStudent.group && selectedStudent.group !== 'Group Not Assigned') ? '#15803d' : '#64748b', lineHeight: 1.2 }}>
+                {selectedStudent.displayGroup || selectedStudent.group || 'Group Not Assigned'}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Selected Child KPI Overview Cards */}

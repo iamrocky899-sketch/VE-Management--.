@@ -752,7 +752,24 @@ export default function Attendance({ onNavigate }) {
 
                           <td style={{ padding: '12px 16px' }}>
                             <div style={{ fontWeight: 700, color: 'var(--slate-900)' }}>{getStudentDisplayName(stu)}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{stu.studentId}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{stu.studentId}</span>
+                              <span style={{
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                padding: '1px 7px',
+                                borderRadius: '6px',
+                                background: 'rgba(99, 102, 241, 0.08)',
+                                color: '#4f46e5',
+                                border: '1px solid rgba(99, 102, 241, 0.18)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}>
+                                <Users size={11} />
+                                <span>Group: {stu.group || stu.student_group || stu.group_name || 'Group Not Assigned'}</span>
+                              </span>
+                            </div>
                           </td>
 
                           <td style={{ padding: '12px 16px' }}>

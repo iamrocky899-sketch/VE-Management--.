@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../state/AuthContext';
-import { ApiService } from '../../api/client';
+import { ApiService, resolveStudentGroup } from '../../api/client';
 import {
   GraduationCap, CheckCircle2, Award, BookOpen, Calendar,
   Bell, FileText, Activity, User, Phone, ArrowRight,
-  AlertCircle, RefreshCw, Sparkles, ShieldCheck, Flame
+  AlertCircle, RefreshCw, Sparkles, ShieldCheck, Flame, Users
 } from 'lucide-react';
 
 export default function StudentDashboard({ setActivePage }) {
@@ -102,12 +102,24 @@ export default function StudentDashboard({ setActivePage }) {
     );
   }
 
-  const student = dashboardData?.student || {
-    studentName: user?.name || 'Student',
-    class: user?.class || '9',
-    section: user?.section || '',
-    rollNo: user?.rollNo || '1',
-    group: user?.group || null
+  const rawStudent = dashboardData?.student || {};
+  const studentSource = {
+    ...user,
+    ...rawStudent,
+    group: rawStudent.group || user?.group || null,
+    student_group: rawStudent.student_group || user?.student_group || null,
+    group_name: rawStudent.group_name || user?.group_name || null
+  };
+  const resolvedGrp = resolveStudentGroup(studentSource);
+
+  const student = {
+    studentId: rawStudent.studentId || rawStudent.student_id || user?.userId || user?.studentId || 'STU_0',
+    studentName: rawStudent.studentName || rawStudent.name || user?.name || 'Student',
+    class: rawStudent.class || user?.class || '9',
+    section: rawStudent.section || user?.section || '',
+    rollNo: rawStudent.rollNo || rawStudent.roll_no || user?.rollNo || '1',
+    group: resolvedGrp !== 'Group Not Assigned' ? resolvedGrp : null,
+    displayGroup: resolvedGrp
   };
 
   const attSummary = dashboardData?.attendanceSummary || {
@@ -214,14 +226,53 @@ export default function StudentDashboard({ setActivePage }) {
                 <span>•</span>
                 <span>Roll No <strong>{student.rollNo}</strong></span>
                 <span>•</span>
-                <span className="hero-group-badge" style={{ background: 'rgba(255,255,255,0.2)', padding: '1px 8px', borderRadius: '6px', fontWeight: 600 }}>
-                  Group: <strong>{student.group || 'Group Not Assigned'}</strong>
+                <span className="hero-group-badge" style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 10px', borderRadius: '6px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <Users size={12} />
+                  <span>Group: <strong>{student.displayGroup || student.group || 'Group Not Assigned'}</strong></span>
                 </span>
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            {/* Prominent Student Group Card */}
+            <div
+              className="student-group-hero-card"
+              style={{
+                background: 'rgba(255, 255, 255, 0.18)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.35)',
+                padding: '8px 16px',
+                borderRadius: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}
+            >
+              <div
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.22)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ffffff'
+                }}
+              >
+                <Users size={17} />
+              </div>
+              <div>
+                <div style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(255, 255, 255, 0.85)' }}>
+                  Student Group
+                </div>
+                <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#ffffff', lineHeight: 1.2 }}>
+                  {student.displayGroup || student.group || 'Group Not Assigned'}
+                </div>
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={() => fetchDashboard(true)}
@@ -232,8 +283,9 @@ export default function StudentDashboard({ setActivePage }) {
                 background: 'rgba(255, 255, 255, 0.15)',
                 color: '#ffffff',
                 border: '1px solid rgba(255, 255, 255, 0.25)',
-                padding: '8px 12px',
-                fontSize: '0.8125rem'
+                padding: '10px 14px',
+                fontSize: '0.8125rem',
+                borderRadius: '12px'
               }}
             >
               <RefreshCw size={14} className={refreshing ? 'spinner' : ''} />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../state/AuthContext';
-import { sendApiRequest } from '../../api/client';
+import { sendApiRequest, resolveStudentGroup } from '../../api/client';
 import {
   ArrowLeft,
   RefreshCw,
@@ -300,8 +300,17 @@ export default function Portfolio({ onNavigate, studentId: propStudentId }) {
                 <span>{isActive ? 'Active Student' : 'Inactive'}</span>
               </span>
 
-              <span className="hero-chip" style={{ background: 'rgba(255, 255, 255, 0.2)' }}>
-                Group: {student.group || 'Group Not Assigned'}
+              <span className="hero-chip" style={{
+                background: 'rgba(255, 255, 255, 0.22)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(255, 255, 255, 0.35)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontWeight: 700
+              }}>
+                <Users size={12} />
+                <span>Student Group: <strong>{resolveStudentGroup(student)}</strong></span>
               </span>
             </div>
           </div>
